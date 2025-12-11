@@ -8,8 +8,8 @@ __license__ = "MIT"
 
 
 class WrappedMatrix:
-    def __init__(self, obj):
-        self._ptr = lib.parse_test(obj)
+    def __init__(self, obj, cache_size = 1e8, require_cache = True):
+        self._ptr = lib.parse_test(obj, cache_size, require_cache)
 
 
     def __del__(self):

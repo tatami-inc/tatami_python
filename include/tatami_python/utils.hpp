@@ -31,7 +31,7 @@ inline std::string get_class_name(const pybind11::object& incoming) {
 
 template<typename Index_>
 std::pair<Index_, Index_> get_shape(const pybind11::object& obj) {
-    auto shape = obj.attr("shape")();
+    auto shape = obj.attr("shape");
     auto tup = shape.cast<pybind11::tuple>();
     if (tup.size() != 2) {
         auto ctype = get_class_name(obj);

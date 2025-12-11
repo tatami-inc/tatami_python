@@ -660,6 +660,7 @@ pybind11::array_t<double> oracular_sparse_sums(
 
 PYBIND11_MODULE(lib_tatami_python_test, m) {
     m.def("free_test", &free_test);
+    m.def("parse_test", &parse_test);
     m.def("nrow_test", &nrow_test);
     m.def("ncol_test", &ncol_test);
     m.def("prefer_rows_test", &prefer_rows_test);
