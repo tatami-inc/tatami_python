@@ -8,6 +8,7 @@
 
 #include "utils.hpp"
 #include "dense_matrix.hpp"
+#include "parallelize.hpp"
 
 #include <vector>
 #include <stdexcept>
@@ -65,8 +66,8 @@ public:
             i = my_oracle->get(my_counter++);
         }
 
-#ifdef TATAMI_R_PARALLELIZE_UNKNOWN 
-        pybind11::gil_scoped_acquire gillock();
+#ifdef TATAMI_PYTHON_PARALLELIZE_UNKNOWN 
+        TATAMI_PYTHON_SERIALIZE([&]() -> void {
 #endif
 
         my_extract_args[static_cast<int>(!my_row)] = create_indexing_array<Index_>(i, 1);
@@ -78,6 +79,10 @@ public:
         } else {
             parse_dense_matrix<Index_>(obj, 0, 0, false, buffer, my_non_target_length, 1);
         }
+
+#ifdef TATAMI_PYTHON_PARALLELIZE_UNKNOWN 
+        });
+#endif
     }
 };
 
@@ -133,8 +138,8 @@ public:
                 return my_factory.create();
             },
             [&](Index_ id, Slab& cache) -> void {
-#ifdef TATAMI_R_PARALLELIZE_UNKNOWN 
-                pybind11::gil_scoped_acquire gillock();
+#ifdef TATAMI_PYTHON_PARALLELIZE_UNKNOWN 
+                TATAMI_PYTHON_SERIALIZE([&]() -> void {
 #endif
 
                 const auto chunk_start = my_chunk_ticks[id];
@@ -148,6 +153,10 @@ public:
                 } else {
                     parse_dense_matrix<Index_>(obj, 0, 0, false, cache.data, my_non_target_length, chunk_len);
                 }
+
+#ifdef TATAMI_PYTHON_PARALLELIZE_UNKNOWN 
+                });
+#endif
             }
         );
 
@@ -222,8 +231,8 @@ public:
                     total_len += my_chunk_ticks[p.first + 1] - my_chunk_ticks[p.first];
                 }
 
-#ifdef TATAMI_R_PARALLELIZE_UNKNOWN 
-                pybind11::gil_scoped_acquire gillock();
+#ifdef TATAMI_PYTHON_PARALLELIZE_UNKNOWN 
+                TATAMI_PYTHON_SERIALIZE([&]() -> void {
 #endif
 
                 pybind11::array_t<Index_> primary_extract(total_len); // known to be safe, from the constructor.
@@ -251,6 +260,10 @@ public:
                     }
                     current += chunk_len;
                 }
+
+#ifdef TATAMI_PYTHON_PARALLELIZE_UNKNOWN 
+                });
+#endif
             }
         );
 

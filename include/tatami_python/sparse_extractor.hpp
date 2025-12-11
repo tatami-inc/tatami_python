@@ -7,6 +7,7 @@
 
 #include "utils.hpp"
 #include "sparse_matrix.hpp"
+#include "parallelize.hpp"
 
 #include <vector>
 #include <stdexcept>
@@ -32,20 +33,12 @@ void initialize_tmp_buffers(
     const bool needs_index, 
     std::vector<CachedIndex_>& tmp_index
 ) {
-    if (row) {
-        if (needs_value) {
-            sanisizer::resize(tmp_value, max_rows_by_row);
-        }
-        if (needs_index) {
-            sanisizer::resize(tmp_index, max_rows_by_row);
-        }
-    } else {
-        if (needs_value) {
-            sanisizer::resize(tmp_value, max_rows_by_col);
-        }
-        if (needs_index) {
-            sanisizer::resize(tmp_index, max_rows_by_col);
-        }
+    const auto len = (row ? max_rows_by_row : max_rows_by_col);
+    if (needs_value) {
+        sanisizer::resize(tmp_value, len);
+    }
+    if (needs_index) {
+        sanisizer::resize(tmp_index, len);
     }
 }
 
@@ -108,7 +101,7 @@ public:
         my_solo.number[0] = 0;
 
 #ifdef TATAMI_PYTHON_PARALLELIZE_UNKNOWN 
-        pybind11::gil_scoped_acquire gillock();
+        TATAMI_PYTHON_SERIALIZE([&]() -> void {
 #endif
 
         my_extract_args[static_cast<int>(!my_row)] = create_indexing_array(i, 1);
@@ -122,6 +115,10 @@ public:
             my_index_tmp.data(),
             my_solo.number
         );
+
+#ifdef TATAMI_PYTHON_PARALLELIZE_UNKNOWN 
+        });
+#endif
 
         return std::make_pair(&my_solo, static_cast<Index_>(0));
     }
@@ -193,8 +190,9 @@ public:
                 const Index_ chunk_len = chunk_end - chunk_start;
                 std::fill_n(cache.number, chunk_len, 0);
 
-#ifdef TATAMI_R_PARALLELIZE_UNKNOWN 
-                pybind11::gil_scoped_acquire gillock();
+
+#ifdef TATAMI_PYTHON_PARALLELIZE_UNKNOWN 
+                TATAMI_PYTHON_SERIALIZE([&]() -> void {
 #endif
 
                 my_extract_args[static_cast<int>(!my_row)] = create_indexing_array<Index_>(chunk_start, chunk_len);
@@ -208,6 +206,10 @@ public:
                     my_index_tmp.data(),
                     cache.number
                 );
+
+#ifdef TATAMI_PYTHON_PARALLELIZE_UNKNOWN 
+                });
+#endif
             }
         );
 
@@ -322,8 +324,8 @@ public:
                 my_chunk_numbers.clear();
                 tatami::resize_container_to_Index_size(my_chunk_numbers, total_len);
 
-#ifdef TATAMI_R_PARALLELIZE_UNKNOWN 
-                pybind11::gil_scoped_acquire gillock();
+#ifdef TATAMI_PYTHON_PARALLELIZE_UNKNOWN 
+                TATAMI_PYTHON_SERIALIZE([&]() -> void {
 #endif
 
                 pybind11::array_t<Index_> primary_extract(total_len); // known to be safe, from the constructor.
@@ -355,6 +357,10 @@ public:
                     std::copy_n(my_chunk_numbers.begin() + current, chunk_len, p.second->number);
                     current += chunk_len;
                 }
+
+#ifdef TATAMI_PYTHON_PARALLELIZE_UNKNOWN 
+                });
+#endif
             }
         );
     }
