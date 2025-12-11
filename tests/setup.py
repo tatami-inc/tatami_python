@@ -1,4 +1,4 @@
-"""Setup file for tatami-python-test. Use setup.cfg to configure your project.
+"""Setup file for tatami_python_test. Use setup.cfg to configure your project.
 
 This file was generated with PyScaffold 4.5.
 PyScaffold helps you to put up the scaffold of your new Python project.
@@ -55,7 +55,7 @@ if __name__ == "__main__":
     import os
     setup(
         version="0.1.0",
-        ext_modules=[CMakeExtension("tatami-python-test")],
+        ext_modules=[CMakeExtension("tatami_python_test")],
         cmdclass={
             'build_ext': build_ext
         }
