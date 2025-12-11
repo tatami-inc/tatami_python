@@ -68,11 +68,9 @@ public:
         // won't bother locking things up. I'm also not sure that the
         // operations in the initialization list are thread-safe.
 
-        std::cout << "Extracting the shape..." << std::endl;
         const auto shape = get_shape<Index_>(my_seed);
         my_nrow = shape.first;
         my_ncol = shape.second;
-        std::cout << "Done" << std::endl;
 
         // Checking that we can safely create a pybind11::array_t<Index_> without overflow.
         // We do it here once, so that we don't need to check in each call to create_indexing_array().

@@ -86,6 +86,21 @@ def compare_list_of_vectors(x, y):
         assert (x[i] == y[i]).all()
 
 
+def quick_test_suite(mat):
+    # Quick tests, mostly to verify that the functions work with other types.
+    ptr = tatami_python_test.WrappedMatrix(mat, 0.2, True)
+
+    iseq = create_predictions(mat.shape[0], 1, "forward")
+    all_expected = create_expected_dense(mat, True, iseq, None)
+    extracted = ptr.extract_dense(True, iseq, None, False)
+    compare_list_of_vectors(extracted, all_expected)
+
+    iseq = create_predictions(mat.shape[1], 1, "forward")
+    all_expected = create_expected_dense(mat, False, iseq, None)
+    extracted = ptr.extract_dense(False, iseq, None, True)
+    compare_list_of_vectors(extracted, all_expected)
+
+
 def full_test_suite(mat, cache_fractions):
     scenarios = expand_grid({
         "cache": cache_fractions,
@@ -128,7 +143,7 @@ def full_test_suite(mat, cache_fractions):
         assert extracted_n == [len(y["value"]) for y in extracted_sparse]
 
         if ptr.is_sparse():
-            prod = mat.nrow() * mat.ncol()
+            prod = mat.shape[0] * mat.shape[1]
             if prod > 0:
                 assert prod > sum(extracted_n)
 

@@ -87,7 +87,7 @@ void dump_to_buffer(const pybind11::array& input, Type_* const buffer) {
  */
 template<typename Value_, typename Index_, class Function_>
 void parse_Sparse2darray(const pybind11::object& matrix, Value_* const vbuffer, Index_* const ibuffer, Function_ fun) {
-    pybind11::object raw_svt = matrix.attr("contents")();
+    pybind11::object raw_svt = matrix.attr("contents");
     if (pybind11::isinstance<pybind11::none>(raw_svt)) {
         return;
     }
@@ -132,18 +132,18 @@ void parse_sparse_matrix(
     const pybind11::object& matrix,
     bool row,
     std::vector<CachedValue_*>& value_ptrs, 
-    CachedValue_* vbuffer,
+    CachedValue_* const vbuffer,
     std::vector<CachedIndex_*>& index_ptrs, 
-    CachedIndex_* ibuffer,
-    Index_* counts)
-{
+    CachedIndex_* const ibuffer,
+    Index_* const counts
+) {
     const bool needs_value = !value_ptrs.empty();
     const bool needs_index = !index_ptrs.empty();
 
     parse_Sparse2darray(
         matrix,
         (needs_value ? vbuffer : NULL),
-        (needs_index ? ibuffer : NULL),
+        (needs_index || row ? ibuffer : NULL),
         [&](const Index_ c, const Index_ nnz) -> void {
             // Note that non-empty value_ptrs and index_ptrs may be longer than the
             // number of rows/columns in the SVT matrix, due to the reuse of slabs.

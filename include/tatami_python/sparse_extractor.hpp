@@ -37,7 +37,7 @@ void initialize_tmp_buffers(
     if (needs_value) {
         sanisizer::resize(tmp_value, len);
     }
-    if (needs_index) {
+    if (needs_index || row) { // we always need the indices for row-major extraction, to keep a running count for each row.
         sanisizer::resize(tmp_index, len);
     }
 }
@@ -189,7 +189,6 @@ public:
                 const auto chunk_start = my_chunk_ticks[id], chunk_end = my_chunk_ticks[id + 1];
                 const Index_ chunk_len = chunk_end - chunk_start;
                 std::fill_n(cache.number, chunk_len, 0);
-
 
 #ifdef TATAMI_PYTHON_PARALLELIZE_UNKNOWN 
                 TATAMI_PYTHON_SERIALIZE([&]() -> void {

@@ -317,6 +317,7 @@ pybind11::list sparse_full(
     const bool needs_value,
     const bool needs_index
 ) {
+    std::cout << "WHEE" << std::endl;
     auto ptr = reinterpret_cast<TestMatrix*>(ptr0);
     auto ext = create_extractor<true, oracle_>(*ptr, row, idx, needs_value, needs_index);
     const auto secondary = (!row ? ptr->nrow() : ptr->ncol());
