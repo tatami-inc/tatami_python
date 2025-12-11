@@ -2,6 +2,7 @@
 #define TATAMI_PYTHON_UNKNOWNMATRIX_HPP
 
 #include "pybind11/pybind11.h"
+#include "pybind11/numpy.h"
 #include "tatami/tatami.hpp"
 
 #include "dense_extractor.hpp"
@@ -60,16 +61,20 @@ public:
         my_module(pybind11::module::import("delayedarray")),
         my_dense_extractor(my_module.attr("extract_dense_array")),
         my_sparse_extractor(my_module.attr("extract_sparse_array")),
-        my_cache_size_in_bytes(opt.cache_size_in_bytes),
+        my_cache_size_in_bytes(opt.maximum_cache_size),
         my_require_minimum_cache(opt.require_minimum_cache)
     {
         // We assume the constructor only occurs on the main thread, so we
         // won't bother locking things up. I'm also not sure that the
         // operations in the initialization list are thread-safe.
 
-        const auto shape = get_shape(my_seed);
+        const auto shape = get_shape<Index_>(my_seed);
         my_nrow = shape.first;
         my_ncol = shape.second;
+
+        // Checking that we can safely create a pybind11::array_t<Index_> without overflow.
+        // We do it here once, so that we don't need to check in each call to create_indexing_array().
+        tatami::can_cast_Index_to_container_size<pybind11::array_t<Index_> >(std::max(my_nrow, my_ncol));
 
         auto sparse = my_module.attr("is_sparse")(my_seed);
         my_sparse = sparse.cast<bool>();
@@ -87,7 +92,7 @@ public:
             // Force realization of Iterable into a numpy array on the Python side.
             // Assume that casting to Index_ is safe, given that we were able to cast the extent.
             auto tick_array = arrayfun(raw_ticks, pybind11::dtype::of<Index_>());
-            auto ticks = tick_array.cast<pybind11::array_t<Index_> >();
+            auto ticks = tick_array.template cast<pybind11::array_t<Index_> >();
             const auto tptr = static_cast<Index_*>(ticks.request().ptr);
             const auto nticks = ticks.size();
 
@@ -101,11 +106,12 @@ public:
                 const auto latest = tptr[i];
                 const auto previous = new_ticks.back();
                 if (latest <= previous) {
+                    auto ctype = get_class_name(seed);
                     throw std::runtime_error("boundaries are not strictly increasing in the output of 'chunk_grid(<" + ctype + ">).boundaries'");
                 }
                 new_ticks.push_back(latest);
 
-                std::fill_n(map.begin() + previous, map.begin() + latest, counter);
+                std::fill(map.begin() + previous, map.begin() + latest, counter);
                 ++counter;
                 const auto to_fill = latest - previous;
                 if (to_fill > max_chunk_size) {
@@ -114,6 +120,7 @@ public:
             }
 
             if (!sanisizer::is_equal(new_ticks.back(), extent)) {
+                auto ctype = get_class_name(seed);
                 throw std::runtime_error("invalid ticks returned in 'chunk_grid(<" + ctype + ">).boundaries'");
             }
         };
@@ -254,7 +261,7 @@ private:
             if (solo) {
                 output.reset(
                     new FromDense_<true, oracle_, Value_, Index_, CachedValue_>(
-                        my_original_seed,
+                        my_seed,
                         my_dense_extractor,
                         row,
                         std::move(oracle),
@@ -268,7 +275,7 @@ private:
             } else {
                 output.reset(
                     new FromDense_<false, oracle_, Value_, Index_, CachedValue_>( 
-                        my_original_seed,
+                        my_seed,
                         my_dense_extractor,
                         row,
                         std::move(oracle),
@@ -284,7 +291,7 @@ private:
             if (solo) {
                 output.reset(
                     new FromSparse_<true, oracle_, Value_, Index_, CachedValue_, CachedIndex_>(
-                        my_original_seed,
+                        my_seed,
                         my_sparse_extractor,
                         row,
                         std::move(oracle),
@@ -299,7 +306,7 @@ private:
             } else {
                 output.reset(
                     new FromSparse_<false, oracle_, Value_, Index_, CachedValue_, CachedIndex_>( 
-                        my_original_seed,
+                        my_seed,
                         my_sparse_extractor,
                         row,
                         std::move(oracle),
@@ -323,7 +330,7 @@ private:
         const tatami::Options&
     ) const {
         Index_ non_target_dim = secondary_dim(row);
-        return populate_dense_internal<oracle_, UnknownMatrix_internal::DenseFull, UnknownMatrix_internal::DensifiedSparseFull>(
+        return populate_dense_internal<oracle_, DenseFull, DensifiedSparseFull>(
             row,
             non_target_dim,
             std::move(ora),
@@ -339,7 +346,7 @@ private:
         Index_ block_length,
         const tatami::Options&
     ) const {
-        return populate_dense_internal<oracle_, UnknownMatrix_internal::DenseBlock, UnknownMatrix_internal::DensifiedSparseBlock>(
+        return populate_dense_internal<oracle_, DenseBlock, DensifiedSparseBlock>(
             row,
             block_length,
             std::move(ora),
@@ -356,7 +363,7 @@ private:
         const tatami::Options&
     ) const {
         Index_ nidx = indices_ptr->size();
-        return populate_dense_internal<oracle_, UnknownMatrix_internal::DenseIndexed, UnknownMatrix_internal::DensifiedSparseIndexed>(
+        return populate_dense_internal<oracle_, DenseIndexed, DensifiedSparseIndexed>(
             row,
             nidx,
             std::move(ora),
@@ -461,7 +468,7 @@ public:
         if (solo) {
             output.reset(
                 new FromSparse_<true, oracle_, Value_, Index_, CachedValue_, CachedIndex_>( 
-                    my_original_seed,
+                    my_seed,
                     my_sparse_extractor,
                     row,
                     std::move(oracle),
@@ -478,7 +485,7 @@ public:
         } else {
             output.reset(
                 new FromSparse_<false, oracle_, Value_, Index_, CachedValue_, CachedIndex_>( 
-                    my_original_seed,
+                    my_seed,
                     my_sparse_extractor,
                     row,
                     std::move(oracle),
@@ -503,7 +510,7 @@ public:
         const tatami::Options& opt
     ) const {
         Index_ non_target_dim = secondary_dim(row);
-        return populate_sparse_internal<oracle_, UnknownMatrix_internal::SparseFull>(
+        return populate_sparse_internal<oracle_, SparseFull>(
             row,
             non_target_dim,
             std::move(ora),
@@ -520,7 +527,7 @@ public:
         Index_ block_length,
         const tatami::Options& opt
     ) const {
-        return populate_sparse_internal<oracle_, UnknownMatrix_internal::SparseBlock>(
+        return populate_sparse_internal<oracle_, SparseBlock>(
             row,
             block_length,
             std::move(ora),
@@ -538,7 +545,7 @@ public:
         const tatami::Options& opt
     ) const {
         Index_ nidx = indices_ptr->size();
-        return populate_sparse_internal<oracle_, UnknownMatrix_internal::SparseIndexed>(
+        return populate_sparse_internal<oracle_, SparseIndexed>(
             row,
             nidx,
             std::move(ora),

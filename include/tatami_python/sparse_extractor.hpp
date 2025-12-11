@@ -6,7 +6,6 @@
 #include "tatami_chunked/tatami_chunked.hpp"
 
 #include "utils.hpp"
-#include "parallelize.hpp"
 #include "sparse_matrix.hpp"
 
 #include <vector>
@@ -16,12 +15,39 @@ namespace tatami_python {
 
 // GENERAL COMMENTS:
 //
-// - No need to protect against overflows when creating IntegerVectors from dimension extents.
+// - No need to protect against overflows when creating pybind11::array_t<Index_t> from dimension extents.
 //   We already know that the dimension extent can be safely converted to/from an int, based on checks in the UnknownMatrix constructor.
 
 /********************
  *** Core classes ***
  ********************/
+
+template<typename Index_, typename CachedValue_, typename CachedIndex_>
+void initialize_tmp_buffers(
+    const bool row,
+    const Index_ max_rows_by_row,
+    const Index_ max_rows_by_col,
+    const bool needs_value, 
+    std::vector<CachedValue_>& tmp_value,
+    const bool needs_index, 
+    std::vector<CachedIndex_>& tmp_index
+) {
+    if (row) {
+        if (needs_value) {
+            sanisizer::resize(tmp_value, max_rows_by_row);
+        }
+        if (needs_index) {
+            sanisizer::resize(tmp_index, max_rows_by_row);
+        }
+    } else {
+        if (needs_value) {
+            sanisizer::resize(tmp_value, max_rows_by_col);
+        }
+        if (needs_index) {
+            sanisizer::resize(tmp_index, max_rows_by_col);
+        }
+    }
+}
 
 template<bool oracle_, typename Index_, typename CachedValue_, typename CachedIndex_>
 class SoloSparseCore {
@@ -29,24 +55,31 @@ public:
     SoloSparseCore(
         const pybind11::object& matrix, 
         const pybind11::object& sparse_extractor,
-        bool row,
+        const bool row,
         tatami::MaybeOracle<oracle_, Index_> oracle,
         pybind11::array non_target_extract, 
         [[maybe_unused]] Index_ max_target_chunk_length, // provided here for compatibility with the other Sparse*Core classes.
         [[maybe_unused]] const std::vector<Index_>& ticks,
         [[maybe_unused]] const std::vector<Index_>& map,
         [[maybe_unused]] const tatami_chunked::SlabCacheStats<Index_>& stats,
-        bool needs_value,
-        bool needs_index
+        const bool needs_value,
+        const bool needs_index
     ) : 
         my_matrix(matrix),
         my_sparse_extractor(sparse_extractor),
         my_extract_args(2),
         my_row(row),
-        my_factory(1, non_target_extract.size(), 1, needs_value, needs_index),
+        my_factory(
+            1,
+            sanisizer::cast<CachedIndex_>(non_target_extract.size()),
+            1,
+            needs_value,
+            needs_index
+        ),
         my_solo(my_factory.create()),
         my_oracle(std::move(oracle))
     {
+        initialize_tmp_buffers<Index_>(row, 1, non_target_extract.size(), needs_value, my_value_tmp, needs_index, my_index_tmp);
         my_extract_args[static_cast<int>(row)] = std::move(non_target_extract);
     }
 
@@ -64,6 +97,9 @@ private:
     tatami::MaybeOracle<oracle_, Index_> my_oracle;
     typename std::conditional<oracle_, tatami::PredictionIndex, bool>::type my_counter = 0;
 
+    std::vector<CachedValue_> my_value_tmp;
+    std::vector<CachedIndex_> my_index_tmp;
+
 public:
     std::pair<const Slab*, Index_> fetch_raw(Index_ i) {
         if constexpr(oracle_) {
@@ -71,13 +107,22 @@ public:
         }
         my_solo.number[0] = 0;
 
-#ifdef TATAMI_R_PARALLELIZE_UNKNOWN 
+#ifdef TATAMI_PYTHON_PARALLELIZE_UNKNOWN 
         pybind11::gil_scoped_acquire gillock();
 #endif
 
         my_extract_args[static_cast<int>(!my_row)] = create_indexing_array(i, 1);
-        auto obj = my_sparse_extractor(my_matrix, my_extract_args);
-        parse_sparse_matrix(obj, my_row, my_solo.values, my_solo.indices, my_solo.number);
+        const auto obj = my_sparse_extractor(my_matrix, my_extract_args);
+        parse_sparse_matrix(
+            obj,
+            my_row,
+            my_solo.values,
+            my_value_tmp.data(),
+            my_solo.indices,
+            my_index_tmp.data(),
+            my_solo.number
+        );
+
         return std::make_pair(&my_solo, static_cast<Index_>(0));
     }
 };
@@ -88,15 +133,15 @@ public:
     MyopicSparseCore(
         const pybind11::object& matrix, 
         const pybind11::object& sparse_extractor,
-        bool row,
+        const bool row,
         [[maybe_unused]] tatami::MaybeOracle<false, Index_> oracle, // provided here for compatibility with the other Sparse*Core classes.
         pybind11::array non_target_extract, 
-        Index_ max_target_chunk_length, 
+        const Index_ max_target_chunk_length, 
         const std::vector<Index_>& ticks,
         const std::vector<Index_>& map,
         const tatami_chunked::SlabCacheStats<Index_>& stats,
-        bool needs_value,
-        bool needs_index
+        const bool needs_value,
+        const bool needs_index
     ) : 
         my_matrix(matrix),
         my_sparse_extractor(sparse_extractor),
@@ -104,9 +149,16 @@ public:
         my_row(row),
         my_chunk_ticks(ticks),
         my_chunk_map(map),
-        my_factory(max_target_chunk_length, non_target_extract.size(), stats, needs_value, needs_index),
+        my_factory(
+            sanisizer::cast<CachedIndex_>(max_target_chunk_length),
+            sanisizer::cast<CachedIndex_>(non_target_extract.size()),
+            stats,
+            needs_value,
+            needs_index
+        ),
         my_cache(stats.max_slabs_in_cache)
     {
+        initialize_tmp_buffers<Index_>(row, max_target_chunk_length, non_target_extract.size(), needs_value, my_value_tmp, needs_index, my_index_tmp);
         my_extract_args[static_cast<int>(row)] = std::move(non_target_extract);
     }
 
@@ -124,18 +176,21 @@ private:
     typedef typename decltype(my_factory)::Slab Slab;
     tatami_chunked::LruSlabCache<Index_, Slab> my_cache;
 
+    std::vector<CachedValue_> my_value_tmp;
+    std::vector<CachedIndex_> my_index_tmp;
+
 public:
     std::pair<const Slab*, Index_> fetch_raw(Index_ i) {
-        auto chosen = my_chunk_map[i];
+        const auto chosen = my_chunk_map[i];
 
         const auto& slab = my_cache.find(
             chosen,
             [&]() -> Slab {
                 return my_factory.create();
             },
-            [&](Index_ id, Slab& cache) -> void {
-                auto chunk_start = my_chunk_ticks[id], chunk_end = my_chunk_ticks[id + 1];
-                Index_ chunk_len = chunk_end - chunk_start;
+            [&](const Index_ id, Slab& cache) -> void {
+                const auto chunk_start = my_chunk_ticks[id], chunk_end = my_chunk_ticks[id + 1];
+                const Index_ chunk_len = chunk_end - chunk_start;
                 std::fill_n(cache.number, chunk_len, 0);
 
 #ifdef TATAMI_R_PARALLELIZE_UNKNOWN 
@@ -143,12 +198,20 @@ public:
 #endif
 
                 my_extract_args[static_cast<int>(!my_row)] = create_indexing_array<Index_>(chunk_start, chunk_len);
-                auto obj = my_sparse_extractor(my_matrix, my_extract_args);
-                parse_sparse_matrix(obj, my_row, cache.values, cache.indices, cache.number);
+                const auto obj = my_sparse_extractor(my_matrix, my_extract_args);
+                parse_sparse_matrix(
+                    obj,
+                    my_row,
+                    cache.values,
+                    my_value_tmp.data(),
+                    cache.indices,
+                    my_index_tmp.data(),
+                    cache.number
+                );
             }
         );
 
-        Index_ offset = i - my_chunk_ticks[chosen];
+        const Index_ offset = i - my_chunk_ticks[chosen];
         return std::make_pair(&slab, offset);
     }
 };
@@ -159,15 +222,15 @@ public:
     OracularSparseCore(
         const pybind11::object& matrix, 
         const pybind11::object& sparse_extractor,
-        bool row,
+        const bool row,
         tatami::MaybeOracle<true, Index_> oracle,
         pybind11::array non_target_extract, 
-        Index_ max_target_chunk_length, 
+        const Index_ max_target_chunk_length, 
         const std::vector<Index_>& ticks,
         const std::vector<Index_>& map,
         const tatami_chunked::SlabCacheStats<Index_>& stats,
-        bool needs_value,
-        bool needs_index
+        const bool needs_value,
+        const bool needs_index
     ) : 
         my_matrix(matrix),
         my_sparse_extractor(sparse_extractor),
@@ -175,11 +238,20 @@ public:
         my_row(row),
         my_chunk_ticks(ticks),
         my_chunk_map(map),
-        my_factory(max_target_chunk_length, non_target_extract.size(), stats, needs_value, needs_index),
+        my_factory(
+            sanisizer::cast<CachedIndex_>(max_target_chunk_length),
+            sanisizer::cast<CachedIndex_>(non_target_extract.size()),
+            stats,
+            needs_value,
+            needs_index
+        ),
         my_cache(std::move(oracle), stats.max_slabs_in_cache),
         my_needs_value(needs_value),
         my_needs_index(needs_index)
     {
+        // map.size() is equal to the extent of the target dimension.
+        // We don't know how many chunks we might bundle together in a single call, so better overestimate to be safe.
+        initialize_tmp_buffers<Index_>(row, map.size(), non_target_extract.size(), needs_value, my_value_tmp, needs_index, my_index_tmp);
         my_extract_args[static_cast<int>(row)] = std::move(non_target_extract);
     }
 
@@ -204,10 +276,13 @@ private:
     bool my_needs_value;
     bool my_needs_index;
 
+    std::vector<CachedValue_> my_value_tmp;
+    std::vector<CachedIndex_> my_index_tmp;
+
 public:
-    std::pair<const Slab*, Index_> fetch_raw(Index_) {
+    std::pair<const Slab*, Index_> fetch_raw(const Index_) {
         return my_cache.next(
-            [&](Index_ i) -> std::pair<Index_, Index_> {
+            [&](const Index_ i) -> std::pair<Index_, Index_> {
                 auto chosen = my_chunk_map[i];
                 return std::make_pair(chosen, static_cast<Index_>(i - my_chunk_ticks[chosen]));
             },
@@ -251,7 +326,7 @@ public:
                 pybind11::gil_scoped_acquire gillock();
 #endif
 
-                auto primary_extract = sanisizer::create<pybind11::array_t<Index_> >(total_len);
+                pybind11::array_t<Index_> primary_extract(total_len); // known to be safe, from the constructor.
                 auto pptr = static_cast<Index_*>(primary_extract.request().ptr);
                 Index_ current = 0;
                 for (const auto& p : to_populate) {
@@ -262,9 +337,17 @@ public:
                     current += chunk_len;
                 }
 
-                my_extract_args[static_cast<int>(!my_row)] = primary_extract;
+                my_extract_args[static_cast<int>(!my_row)] = std::move(primary_extract);
                 auto obj = my_sparse_extractor(my_matrix, my_extract_args);
-                parse_sparse_matrix(obj, my_row, my_chunk_value_ptrs, my_chunk_index_ptrs, my_chunk_numbers.data());
+                parse_sparse_matrix(
+                    obj,
+                    my_row,
+                    my_chunk_value_ptrs,
+                    my_value_tmp.data(),
+                    my_chunk_index_ptrs,
+                    my_index_tmp.data(),
+                    my_chunk_numbers.data()
+                );
 
                 current = 0;
                 for (const auto& p : to_populate) {
@@ -296,15 +379,16 @@ public:
     SparseFull(
         const pybind11::object& matrix, 
         const pybind11::object& sparse_extractor,
-        bool row,
+        const bool row,
         tatami::MaybeOracle<oracle_, Index_> oracle,
-        Index_ non_target_dim,
-        Index_ max_target_chunk_length, 
+        const Index_ non_target_dim,
+        const Index_ max_target_chunk_length, 
         const std::vector<Index_>& ticks,
         const std::vector<Index_>& map,
         const tatami_chunked::SlabCacheStats<Index_>& stats,
-        bool needs_value,
-        bool needs_index) : 
+        const bool needs_value,
+        const bool needs_index
+    ) : 
         my_core(
             matrix,
             sparse_extractor,
@@ -329,10 +413,10 @@ private:
     bool my_needs_value, my_needs_index;
 
 public:
-    tatami::SparseRange<Value_, Index_> fetch(Index_ i, Value_* value_buffer, Index_* index_buffer) {
-        auto res = my_core.fetch_raw(i);
+    tatami::SparseRange<Value_, Index_> fetch(const Index_ i, Value_* const value_buffer, Index_* const index_buffer) {
+        const auto res = my_core.fetch_raw(i);
         const auto& slab = *(res.first);
-        Index_ offset = res.second;
+        const Index_ offset = res.second;
 
         tatami::SparseRange<Value_, Index_> output(slab.number[offset]);
         if (my_needs_value) {
@@ -355,16 +439,16 @@ public:
     SparseBlock(
         const pybind11::object& matrix, 
         const pybind11::object& sparse_extractor,
-        bool row,
+        const bool row,
         tatami::MaybeOracle<oracle_, Index_> oracle,
-        Index_ block_start,
-        Index_ block_length,
-        Index_ max_target_chunk_length, 
+        const Index_ block_start,
+        const Index_ block_length,
+        const Index_ max_target_chunk_length, 
         const std::vector<Index_>& ticks,
         const std::vector<Index_>& map,
         const tatami_chunked::SlabCacheStats<Index_>& stats,
-        bool needs_value,
-        bool needs_index
+        const bool needs_value,
+        const bool needs_index
     ) : 
         my_core(
             matrix,
@@ -390,10 +474,10 @@ private:
     bool my_needs_value, my_needs_index;
 
 public:
-    tatami::SparseRange<Value_, Index_> fetch(Index_ i, Value_* value_buffer, Index_* index_buffer) {
+    tatami::SparseRange<Value_, Index_> fetch(const Index_ i, Value_* const value_buffer, Index_* const index_buffer) {
         auto res = my_core.fetch_raw(i);
         const auto& slab = *(res.first);
-        Index_ offset = res.second;
+        const Index_ offset = res.second;
 
         tatami::SparseRange<Value_, Index_> output(slab.number[offset]);
         if (my_needs_value) {
@@ -402,7 +486,7 @@ public:
         }
 
         if (my_needs_index) {
-            auto iptr = slab.indices[offset];
+            const auto iptr = slab.indices[offset];
             for (Index_ i = 0; i < output.number; ++i) {
                 index_buffer[i] = static_cast<Index_>(iptr[i]) + my_block_start;
             }
@@ -419,21 +503,22 @@ public:
     SparseIndexed(
         const pybind11::object& matrix, 
         const pybind11::object& sparse_extractor,
-        bool row,
+        const bool row,
         tatami::MaybeOracle<oracle_, Index_> oracle,
         tatami::VectorPtr<Index_> indices_ptr,
-        Index_ max_target_chunk_length, 
+        const Index_ max_target_chunk_length, 
         const std::vector<Index_>& ticks,
         const std::vector<Index_>& map,
         const tatami_chunked::SlabCacheStats<Index_>& stats,
-        bool needs_value,
-        bool needs_index) : 
+        const bool needs_value,
+        const bool needs_index
+    ) : 
         my_core(
             matrix,
             sparse_extractor,
             row,
             std::move(oracle),
-            increment_indices(*indices_ptr),
+            create_indexing_array(*indices_ptr),
             max_target_chunk_length,
             ticks,
             map,
@@ -452,10 +537,10 @@ private:
     bool my_needs_value, my_needs_index;
 
 public:
-    tatami::SparseRange<Value_, Index_> fetch(Index_ i, Value_* value_buffer, Index_* index_buffer) {
-        auto res = my_core.fetch_raw(i);
+    tatami::SparseRange<Value_, Index_> fetch(const Index_ i, Value_* const value_buffer, Index_* const index_buffer) {
+        const auto res = my_core.fetch_raw(i);
         const auto& slab = *(res.first);
-        Index_ offset = res.second;
+        const Index_ offset = res.second;
 
         tatami::SparseRange<Value_, Index_> output(slab.number[offset]);
         if (my_needs_value) {
@@ -464,7 +549,7 @@ public:
         }
 
         if (my_needs_index) {
-            auto iptr = slab.indices[offset];
+            const auto iptr = slab.indices[offset];
             const auto& indices = *my_indices_ptr;
             for (Index_ i = 0; i < output.number; ++i) {
                 index_buffer[i] = indices[iptr[i]];
@@ -481,12 +566,13 @@ public:
  ***********************************/
 
 template<typename Slab_, typename Value_, typename Index_>
-const Value_* densify(const Slab_& slab, Index_ offset, Index_ non_target_length, Value_* buffer) {
-    auto vptr = slab.values[offset];
-    auto iptr = slab.indices[offset];
+const Value_* densify(const Slab_& slab, const Index_ offset, const Index_ non_target_length, Value_* const buffer) {
+    const auto vptr = slab.values[offset];
+    const auto iptr = slab.indices[offset];
     std::fill_n(buffer, non_target_length, 0);
-    for (Index_ i = 0, end = slab.number[offset]; i < end; ++i, ++vptr, ++iptr) {
-        buffer[*iptr] = *vptr;
+    const auto num = slab.number[offset];
+    for (Index_ i = 0; i < num; ++i) {
+        buffer[iptr[i]] = vptr[i];
     }
     return buffer;
 }
@@ -497,10 +583,10 @@ public:
     DensifiedSparseFull(
         const pybind11::object& matrix, 
         const pybind11::object& sparse_extractor,
-        bool row,
+        const bool row,
         tatami::MaybeOracle<oracle_, Index_> oracle,
-        Index_ non_target_dim,
-        Index_ max_target_chunk_length, 
+        const Index_ non_target_dim,
+        const Index_ max_target_chunk_length, 
         const std::vector<Index_>& ticks,
         const std::vector<Index_>& map,
         const tatami_chunked::SlabCacheStats<Index_>& stats
@@ -526,8 +612,8 @@ private:
     Index_ my_non_target_dim;
 
 public:
-    const Value_* fetch(Index_ i, Value_* buffer) {
-        auto res = my_core.fetch_raw(i);
+    const Value_* fetch(const Index_ i, Value_* const buffer) {
+        const auto res = my_core.fetch_raw(i);
         return densify(*(res.first), res.second, my_non_target_dim, buffer);
     }
 };
@@ -538,11 +624,11 @@ public:
     DensifiedSparseBlock(
         const pybind11::object& matrix, 
         const pybind11::object& sparse_extractor,
-        bool row,
+        const bool row,
         tatami::MaybeOracle<oracle_, Index_> oracle,
-        Index_ block_start,
-        Index_ block_length,
-        Index_ max_target_chunk_length, 
+        const Index_ block_start,
+        const Index_ block_length,
+        const Index_ max_target_chunk_length, 
         const std::vector<Index_>& ticks,
         const std::vector<Index_>& map,
         const tatami_chunked::SlabCacheStats<Index_>& stats
@@ -568,8 +654,8 @@ private:
     Index_ my_block_length;
 
 public:
-    const Value_* fetch(Index_ i, Value_* buffer) {
-        auto res = my_core.fetch_raw(i);
+    const Value_* fetch(const Index_ i, Value_* const buffer) {
+        const auto res = my_core.fetch_raw(i);
         return densify(*(res.first), res.second, my_block_length, buffer);
     }
 };
@@ -580,10 +666,10 @@ public:
     DensifiedSparseIndexed(
         const pybind11::object& matrix, 
         const pybind11::object& sparse_extractor,
-        bool row,
+        const bool row,
         tatami::MaybeOracle<oracle_, Index_> oracle,
         tatami::VectorPtr<Index_> idx_ptr,
-        Index_ max_target_chunk_length, 
+        const Index_ max_target_chunk_length, 
         const std::vector<Index_>& ticks,
         const std::vector<Index_>& map,
         const tatami_chunked::SlabCacheStats<Index_>& stats
@@ -609,8 +695,8 @@ private:
     Index_ my_num_indices;
 
 public:
-    const Value_* fetch(Index_ i, Value_* buffer) {
-        auto res = my_core.fetch_raw(i);
+    const Value_* fetch(const Index_ i, Value_* const buffer) {
+        const auto res = my_core.fetch_raw(i);
         return densify(*(res.first), res.second, my_num_indices, buffer);
     }
 };

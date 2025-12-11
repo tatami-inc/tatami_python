@@ -21,9 +21,7 @@ namespace tatami_python {
  */
 template<typename Type_>
 void dump_to_buffer(const pybind11::array& input, Type_* const buffer) {
-    buffer.resize(input.size()); // known safe as input.size() < NR, and we already checked that the latter doesn't overflow a buffer. 
-
-    auto dtype = buffer.dtype();
+    auto dtype = input.dtype();
     if (dtype.is(pybind11::dtype::of<double>())) {
         std::copy_n(static_cast<const double*>(input.request().ptr), input.size(), buffer);
 
@@ -95,6 +93,10 @@ void parse_Sparse2darray(const pybind11::object& matrix, Value_* const vbuffer, 
     }
     auto svt = raw_svt.cast<pybind11::list>();
 
+    const auto shape = get_shape<Index_>(matrix);
+    const auto NR = shape.first;
+    const auto NC = shape.second;
+
     for (I<decltype(NC)> c = 0; c < NC; ++c) {
         pybind11::object raw_inner(svt[c]);
         if (pybind11::isinstance<pybind11::none>(raw_inner)) {
@@ -135,14 +137,13 @@ void parse_sparse_matrix(
     CachedIndex_* ibuffer,
     Index_* counts)
 {
-    auto ctype = get_class_name(matrix);
-    bool needs_value = !value_ptrs.empty();
-    bool needs_index = !index_ptrs.empty();
+    const bool needs_value = !value_ptrs.empty();
+    const bool needs_index = !index_ptrs.empty();
 
     parse_Sparse2darray(
         matrix,
-        vbuffer,
-        ibuffer,
+        (needs_value ? vbuffer : NULL),
+        (needs_index ? ibuffer : NULL),
         [&](const Index_ c, const Index_ nnz) -> void {
             // Note that non-empty value_ptrs and index_ptrs may be longer than the
             // number of rows/columns in the SVT matrix, due to the reuse of slabs.

@@ -2,7 +2,6 @@
 #define TATAMI_PYTHON_TATAMI_PYTHON_HPP
 
 #include "UnknownMatrix.hpp"
-#include "parallelize.hpp"
 
 /** 
  * @file tatami_python.hpp

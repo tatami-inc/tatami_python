@@ -1,26 +1,26 @@
 cmake_minimum_required(VERSION 3.24)
 
-project(mattress
+project(tatami_python_test
     VERSION 1.0.0
-    DESCRIPTION "Building the mattress shared library"
+    DESCRIPTION "Building the tatami_python_test shared library"
     LANGUAGES CXX)
 
 # Defining the targets.
 find_package(pybind11 CONFIG)
 
 # pybind11 method:
-pybind11_add_module(mattress
-    src/common.cpp
+pybind11_add_module(tatami_python_test
+    src/bindings.cpp
 )
 
-target_include_directories(mattress PRIVATE "${ASSORTHEAD_INCLUDE_DIR}")
-target_include_directories(mattress PRIVATE "../../include")
+target_include_directories(tatami_python_test PRIVATE "${ASSORTHEAD_INCLUDE_DIR}")
+target_include_directories(tatami_python_test PRIVATE "../../include")
 
-set_property(TARGET mattress PROPERTY CXX_STANDARD 17)
+set_property(TARGET tatami_python_test PROPERTY CXX_STANDARD 17)
 
-target_link_libraries(mattress PRIVATE pybind11::pybind11)
+target_link_libraries(tatami_python_test PRIVATE pybind11::pybind11)
 
-set_target_properties(mattress PROPERTIES
-    OUTPUT_NAME lib_mattress
+set_target_properties(tatami_python_test PROPERTIES
+    OUTPUT_NAME lib_tatami_python_test
     PREFIX ""
 )
