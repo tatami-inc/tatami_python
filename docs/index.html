@@ -90,7 +90,49 @@ $(function(){ initResizable(false); });
 </div><!--header-->
 <div class="contents">
 <div class="textblock"><p><a class="anchor" id="md__2github_2workspace_2README"></a></p>
-<p><img src="https://github.com/tatami-inc/tatami_python/actions/workflows/run-tests.yaml/badge.svg" alt="Unit tests" style="pointer-events: none;" class="inline"/> <img src="https://github.com/tatami-inc/tatami_python/actions/workflows/doxygenate.yaml/badge.svg" alt="Documentation" style="pointer-events: none;" class="inline"/> </p>
+<p><img src="https://github.com/tatami-inc/tatami_python/actions/workflows/run-tests.yaml/badge.svg" alt="Unit tests" style="pointer-events: none;" class="inline"/> <img src="https://github.com/tatami-inc/tatami_python/actions/workflows/doxygenate.yaml/badge.svg" alt="Documentation" style="pointer-events: none;" class="inline"/></p>
+<h1><a class="anchor" id="autotoc_md1"></a>
+Overview</h1>
+<p><b><a class="el" href="namespacetatami__python.html" title="tatami bindings for arbitrary Python matrices.">tatami_python</a></b> is an header-only library for reading abstract Python matrices in <a href="https://github.com/tatami-inc/tatami"><b>tatami</b></a>. This allows <b>tatami</b>-based C++ functions to accept and operate on any matrix-like Python object containing numeric data. Usage is as simple as:</p>
+<div class="fragment"><div class="line"><span class="preprocessor">#include &quot;tatami_pybind/tatami_pybind.hpp&quot;</span></div>
+<div class="line"> </div>
+<div class="line">pybind11::object some_typical_pybind_function(<span class="keyword">const</span> pybind11::object&amp; x) {</div>
+<div class="line">    <span class="keyword">auto</span> ptr = std::make_shared&lt;tatami_python::UnknownMatrix&lt;double, int&gt; &gt;(x);</div>
+<div class="line"> </div>
+<div class="line">    <span class="comment">// Do stuff with the tatami::Matrix.</span></div>
+<div class="line">    ptr-&gt;nrow();</div>
+<div class="line">    <span class="keyword">auto</span> row_extractor = ptr-&gt;dense_row();</div>
+<div class="line">    <span class="keyword">auto</span> first_row = row_extractor-&gt;fetch(0);</div>
+<div class="line"> </div>
+<div class="line">    <span class="comment">// Return something.</span></div>
+<div class="line">    <span class="keywordflow">return</span> pybind11::none();</div>
+<div class="line">}</div>
+</div><!-- fragment --><p>For more details, check out the <a href="https://tatami-inc.github.io/tatami_python">reference documentation</a>.</p>
+<h1><a class="anchor" id="autotoc_md2"></a>
+Implementation</h1>
+<p><b>tatami_r</b> assumes that the <a href="https://github.com/BiocPy/delayedarray"><b>delayedarray</b></a> package is installed. The <code>UnknownMatrix</code> getters will use the <code>extract_dense_array()</code> and <code>extract_sparse_array()</code> Python functions to retrieve data from the abstract Python matrix. Obviously, this involves calling into Python from C++, so high performance should not be expected here. Rather, the purpose of <b><a class="el" href="namespacetatami__python.html" title="tatami bindings for arbitrary Python matrices.">tatami_python</a></b> is to ensure that <b>tatami</b>-based functions keep working when a native implementation cannot be found for a Python matrix.</p>
+<h1><a class="anchor" id="autotoc_md3"></a>
+Enabling parallelization</h1>
+<p>We enable thread-safe execution by defining the <code>TATAMI_PYTHON_PARALLELIZE_UNKNOWN</code> macro. This instructs <b><a class="el" href="namespacetatami__python.html" title="tatami bindings for arbitrary Python matrices.">tatami_python</a></b> to momentarily acquire the GIL whenever a thread needs to call a Python function.</p>
+<div class="fragment"><div class="line"><span class="comment">// Set up these macros before including any tatami libraries.</span></div>
+<div class="line"><span class="preprocessor">#define TATAMI_PYTHON_PARALLELIZE_UNKNOWN</span></div>
+<div class="line"><span class="preprocessor">#define TATAMI_CUSTOM_PARALLEL ::tatami_python::parallelize</span></div>
+</div><!-- fragment --><p>Developers should release the GIL before any parallel section that might involve accessing an <code>UnknownMatrix</code>, otherwise all other threads would be blocked by the main thread. This is facilitated by the <code><a class="el" href="namespacetatami__python.html#a125b258daa1b77c9e7900018898ae2eb">tatami_python::parallelize()</a></code> function, which is a drop-in replacement for <code><a class="elRef" href="https://tatami-inc.github.io/tatami/namespacetatami.html#a3ea65e5b93eb55c03b00aca301e0396f">tatami::parallelize()</a></code> that releases the GIL before doing any parallel work. By setting the <code>TATAMI_CUSTOM_PARALLEL</code> macro, we ensure that all calls to <code><a class="elRef" href="https://tatami-inc.github.io/tatami/namespacetatami.html#a3ea65e5b93eb55c03b00aca301e0396f">tatami::parallelize()</a></code> will automatically use <code><a class="el" href="namespacetatami__python.html#a125b258daa1b77c9e7900018898ae2eb">tatami_python::parallelize()</a></code>:</p>
+<div class="fragment"><div class="line"><a class="code hl_functionRef" href="https://tatami-inc.github.io/tatami/namespacetatami.html#a3ea65e5b93eb55c03b00aca301e0396f">tatami::parallelize</a>([&amp;](<span class="keywordtype">int</span> thread_id, <span class="keywordtype">int</span> start, <span class="keywordtype">int</span> len) -&gt; <span class="keywordtype">void</span> {</div>
+<div class="line">    <span class="comment">// Do something with the UnknownMatrix.</span></div>
+<div class="line">    <span class="keyword">auto</span> ext = ptr-&gt;dense_row();</div>
+<div class="line">    std::vector&lt;double&gt; buffer(ptr-&gt;ncol());</div>
+<div class="line">    <span class="keywordflow">for</span> (<span class="keywordtype">int</span> r = start, end = start + len; start &lt; end; ++r) {</div>
+<div class="line">        <span class="keyword">auto</span> out = ext-&gt;fetch(r, buffer.data());</div>
+<div class="line">        <span class="comment">// Do something with each row.</span></div>
+<div class="line">    }</div>
+<div class="line">}, ptr-&gt;nrow(), num_threads);</div>
+<div class="ttc" id="anamespacetatami_html_a3ea65e5b93eb55c03b00aca301e0396f"><div class="ttname"><a href="https://tatami-inc.github.io/tatami/namespacetatami.html#a3ea65e5b93eb55c03b00aca301e0396f">tatami::parallelize</a></div><div class="ttdeci">void parallelize(Function_ fun, const Index_ tasks, const int threads)</div></div>
+</div><!-- fragment --><p>Needless to say, the use of the GIL means that the Python calls are strictly serial, regardless of the number of threads requested in <code><a class="elRef" href="https://tatami-inc.github.io/tatami/namespacetatami.html#a3ea65e5b93eb55c03b00aca301e0396f">tatami::parallelize()</a></code>.</p>
+<h2><a class="anchor" id="autotoc_md4"></a>
+Deployment</h2>
+<p><b><a class="el" href="namespacetatami__python.html" title="tatami bindings for arbitrary Python matrices.">tatami_python</a></b> is intended to be compiled with other relevant C++ code inside an Python package using <a href="https://github.com/pybind/pybind11"><b>pybind11</b></a>. This is most easily done by linking to the <a href="https://github.com/tatami-inc/mattress"><b>mattress</b></a> and <a href="https://github.com/BiocPy/assorthead"><b>assorthead</b></a> packages, follow the links for more instructions.</p>
+<p>If <b>assorthead</b> or <b>mattress</b> cannot be used, the Python package developer will need to acquire the contents of the <code>include/</code> directory (along with all dependencies in <a href="extern/CMakeLists.txt"><code>extern/CMakeLists.txt</code></a>) and make them available during package compilation. </p>
 </div></div><!-- PageDoc -->
 <a href="doxygen_crawl.html"></a>
 </div><!-- contents -->

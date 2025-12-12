@@ -23,5 +23,6 @@ var searchData=
   ['oraculardenseextractor_20',['OracularDenseExtractor',['https://tatami-inc.github.io/tatami/classtatami_1_1OracularDenseExtractor.html',1,'tatami']]],
   ['oraculardenseextractor_3c_20value_5f_2c_20index_5f_20_3e_21',['OracularDenseExtractor&lt; Value_, Index_ &gt;',['https://tatami-inc.github.io/tatami/classtatami_1_1OracularDenseExtractor.html',1,'tatami']]],
   ['oracularsparseextractor_22',['OracularSparseExtractor',['https://tatami-inc.github.io/tatami/classtatami_1_1OracularSparseExtractor.html',1,'tatami']]],
-  ['oracularsparseextractor_3c_20value_5f_2c_20index_5f_20_3e_23',['OracularSparseExtractor&lt; Value_, Index_ &gt;',['https://tatami-inc.github.io/tatami/classtatami_1_1OracularSparseExtractor.html',1,'tatami']]]
+  ['oracularsparseextractor_3c_20value_5f_2c_20index_5f_20_3e_23',['OracularSparseExtractor&lt; Value_, Index_ &gt;',['https://tatami-inc.github.io/tatami/classtatami_1_1OracularSparseExtractor.html',1,'tatami']]],
+  ['overview_24',['Overview',['../index.html#autotoc_md1',1,'']]]
 ];
