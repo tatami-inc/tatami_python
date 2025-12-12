@@ -29,14 +29,12 @@ class build_ext(build_ext_orig):
         outpath = os.path.join(build_lib.absolute(), ext.name) 
 
         if not os.path.exists(build_temp):
-            import assorthead
             cmd = [ 
                 "cmake", 
                 "-S", "lib",
                 "-B", build_temp,
                 "-Dpybind11_DIR=" + os.path.join(os.path.dirname(pybind11.__file__), "share", "cmake", "pybind11"),
-                "-DPYTHON_EXECUTABLE=" + sys.executable,
-                "-DASSORTHEAD_INCLUDE_DIR=" + assorthead.includes()
+                "-DPYTHON_EXECUTABLE=" + sys.executable
             ]
             if os.name != "nt":
                 cmd.append("-DCMAKE_BUILD_TYPE=Release")

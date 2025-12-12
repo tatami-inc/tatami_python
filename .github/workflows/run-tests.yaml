@@ -1,0 +1,46 @@
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+
+name: Run tests
+
+jobs:
+  build:
+    name: Run tests
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        parallel: [true, false]
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Get latest CMake
+      uses: lukka/get-cmake@latest
+
+    - name: Configure the build 
+      run: cmake -S . -B build 
+
+    - name: Set up Python
+      uses: actions/setup-python@v6
+      with:
+        python-version: '3.14'
+        cache: 'pip'
+
+    - name: Turn off parallelization flags
+      if: ${{ !matrix.parallel }}
+      run: |
+        cat tests/lib/CMakeLists.txt | grep -v "TEST_CUSTOM_PARALLEL" > .tmp
+        cat .tmp
+        mv .tmp tests/lib/CMakeLists.txt
+
+    - name: Install package
+      run: python3 -m pip install .[testing]
+      working-directory: tests
+
+    - name: Run the tests
+      run: python3 -m pytest
+      working-directory: tests

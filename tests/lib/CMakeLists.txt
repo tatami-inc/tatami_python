@@ -13,7 +13,10 @@ pybind11_add_module(tatami_python_test
     src/bindings.cpp
 )
 
-target_include_directories(tatami_python_test PRIVATE "${ASSORTHEAD_INCLUDE_DIR}")
+target_include_directories(tatami_python_test PRIVATE "../../build/_deps/sanisizer-src/include")
+target_include_directories(tatami_python_test PRIVATE "../../build/_deps/subpar-src/include")
+target_include_directories(tatami_python_test PRIVATE "../../build/_deps/tatami-src/include")
+target_include_directories(tatami_python_test PRIVATE "../../build/_deps/tatami_chunked-src/include")
 target_include_directories(tatami_python_test PRIVATE "../../include")
 
 target_compile_definitions(tatami_python_test PRIVATE TEST_CUSTOM_PARALLEL=1)
