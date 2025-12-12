@@ -317,7 +317,6 @@ pybind11::list sparse_full(
     const bool needs_value,
     const bool needs_index
 ) {
-    std::cout << "WHEE" << std::endl;
     auto ptr = reinterpret_cast<TestMatrix*>(ptr0);
     auto ext = create_extractor<true, oracle_>(*ptr, row, idx, needs_value, needs_index);
     const auto secondary = (!row ? ptr->nrow() : ptr->ncol());
@@ -486,10 +485,6 @@ pybind11::array_t<double> dense_sums(
     const auto secondary = (!row ? ptr->nrow() : ptr->ncol());
 
 #ifdef TEST_CUSTOM_PARALLEL
-#ifdef TATAMI_PYTHON_PARALLELIZE_UNKNOWN 
-    pybind11::gil_scoped_acquire gillock();
-#endif
-
     std::vector<std::vector<double> > output(num_threads);
     tatami::parallelize([&](    
         std::int32_t w,
@@ -577,10 +572,6 @@ pybind11::array_t<double> sparse_sums(
     const auto secondary = (!row ? ptr->nrow() : ptr->ncol());
 
 #ifdef TEST_CUSTOM_PARALLEL
-#ifdef TATAMI_PYTHON_PARALLELIZE_UNKNOWN 
-    pybind11::gil_scoped_release gillock();
-#endif
-
     std::vector<std::vector<double> > output(num_threads);
     tatami::parallelize([&](
         std::int32_t w,

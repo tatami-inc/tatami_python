@@ -33,6 +33,7 @@ class WrappedMatrix:
 
 
     def extract_dense(self, row, indices, subset, oracle = False):
+        indices = numpy.array(indices, numpy.dtype("int32"))
         if subset is None:
             if oracle:
                 return lib.oracular_dense_full(self._ptr, row, indices)
@@ -44,13 +45,15 @@ class WrappedMatrix:
             else:
                 return lib.myopic_dense_block(self._ptr, row, indices, subset[0], subset[1])
         else:
+            subset = numpy.array(subset, numpy.dtype("int32"))
             if oracle:
-                return lib.oracular_dense_indexed(self._ptr, row, indices, numpy.array(subset[0], numpy.dtype("int32")))
+                return lib.oracular_dense_indexed(self._ptr, row, indices, subset)
             else:
-                return lib.myopic_dense_indexed(self._ptr, row, indices, numpy.array(subset[1], numpy.dtype("int32")))
+                return lib.myopic_dense_indexed(self._ptr, row, indices, subset)
 
 
     def extract_sparse(self, row, indices, subset, oracle = False, needs_value = True, needs_index = True):
+        indices = numpy.array(indices, numpy.dtype("int32"))
         if subset is None:
             if oracle:
                 return lib.oracular_sparse_full(self._ptr, row, indices, needs_value, needs_index)
@@ -62,7 +65,22 @@ class WrappedMatrix:
             else:
                 return lib.myopic_sparse_block(self._ptr, row, indices, subset[0], subset[1], needs_value, needs_index)
         else:
+            subset = numpy.array(subset, numpy.dtype("int32"))
             if oracle:
-                return lib.oracular_sparse_indexed(self._ptr, row, indices, numpy.array(subset[0], numpy.dtype("int32")), needs_value, needs_index)
+                return lib.oracular_sparse_indexed(self._ptr, row, indices, subset, needs_value, needs_index)
             else:
-                return lib.myopic_sparse_indexed(self._ptr, row, indices, numpy.array(subset[1], numpy.dtype("int32")), needs_value, needs_index)
+                return lib.myopic_sparse_indexed(self._ptr, row, indices, subset, needs_value, needs_index)
+
+
+    def dense_sum(self, row, oracle, num_threads):
+        if oracle:
+            return lib.oracular_dense_sums(self._ptr, row, num_threads)
+        else:
+            return lib.myopic_dense_sums(self._ptr, row, num_threads)
+
+
+    def sparse_sum(self, row, oracle, num_threads):
+        if oracle:
+            return lib.oracular_sparse_sums(self._ptr, row, num_threads)
+        else:
+            return lib.myopic_sparse_sums(self._ptr, row, num_threads)

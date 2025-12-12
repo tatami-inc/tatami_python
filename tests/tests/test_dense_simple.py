@@ -21,7 +21,7 @@ def test_numpy_row_major():
     assert not wrapped.is_sparse()
     assert wrapped.prefer_rows()
 
-    compare.big_test_suite(mat, [0, 0.01, 0.1, 0.5])
+    compare.big_test_suite(mat)
 
 
 # Mock class for checking column major extraction.
@@ -67,7 +67,7 @@ def test_numpy_col_major():
     assert not wrapped.is_sparse()
     assert not wrapped.prefer_rows()
 
-    compare.big_test_suite(mat, [0, 0.01, 0.1, 0.5])
+    compare.big_test_suite(mat)
 
 
 def test_numpy_types():

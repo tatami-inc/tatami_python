@@ -16,7 +16,7 @@ def test_Sparse2darray_basic():
     assert wrapped.is_sparse()
     assert not wrapped.prefer_rows()
 
-    compare.big_test_suite(mat, [0, 0.01, 0.1, 0.5])
+    compare.big_test_suite(mat)
 
 
 def test_Sparse2darray_types():
@@ -72,7 +72,7 @@ def test_Sparse2darray_partial_empty():
     assert wrapped.ncol() == NC
     assert wrapped.is_sparse()
 
-    compare.big_test_suite(mat, [0, 0.01, 0.1, 0.5])
+    compare.big_test_suite(mat)
 
 
 def test_Sparse2darray_empty():
