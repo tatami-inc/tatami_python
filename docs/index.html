@@ -129,8 +129,8 @@ Enabling parallelization</h1>
 <div class="line">}, ptr-&gt;nrow(), num_threads);</div>
 <div class="ttc" id="anamespacetatami_html_a3ea65e5b93eb55c03b00aca301e0396f"><div class="ttname"><a href="https://tatami-inc.github.io/tatami/namespacetatami.html#a3ea65e5b93eb55c03b00aca301e0396f">tatami::parallelize</a></div><div class="ttdeci">void parallelize(Function_ fun, const Index_ tasks, const int threads)</div></div>
 </div><!-- fragment --><p>Needless to say, the use of the GIL means that the Python calls are strictly serial, regardless of the number of threads requested in <code><a class="elRef" href="https://tatami-inc.github.io/tatami/namespacetatami.html#a3ea65e5b93eb55c03b00aca301e0396f">tatami::parallelize()</a></code>.</p>
-<h2><a class="anchor" id="autotoc_md4"></a>
-Deployment</h2>
+<h1><a class="anchor" id="autotoc_md4"></a>
+Deployment</h1>
 <p><b><a class="el" href="namespacetatami__python.html" title="tatami bindings for arbitrary Python matrices.">tatami_python</a></b> is intended to be compiled with other relevant C++ code inside an Python package using <a href="https://github.com/pybind/pybind11"><b>pybind11</b></a>. This is most easily done by linking to the <a href="https://github.com/tatami-inc/mattress"><b>mattress</b></a> and <a href="https://github.com/BiocPy/assorthead"><b>assorthead</b></a> packages, follow the links for more instructions.</p>
 <p>If <b>assorthead</b> or <b>mattress</b> cannot be used, the Python package developer will need to acquire the contents of the <code>include/</code> directory (along with all dependencies in <a href="extern/CMakeLists.txt"><code>extern/CMakeLists.txt</code></a>) and make them available during package compilation. </p>
 </div></div><!-- PageDoc -->
