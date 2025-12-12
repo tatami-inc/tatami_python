@@ -4,8 +4,16 @@ import random
 import tatami_python_test
 
 
-def get_cache_size(mat, cache_fraction):
-    return cache_fraction * mat.shape[0] * mat.shape[1] * mat.dtype.itemsize
+def get_cache_size(mat, cache_fraction, sparse):
+    if sparse:
+        # For dense, cache value is always double. In theory, we could
+        # realize a different cache for different input types, but
+        # that would bloat the class for little gain.
+        itemsize = 8
+    else:
+        # For sparse, cache value is double while cache index is int32.
+        itemsize = 12
+    return cache_fraction * mat.shape[0] * mat.shape[1] * itemsize
 
 
 def create_predictions(iterdim, step, mode):
@@ -18,13 +26,6 @@ def create_predictions(iterdim, step, mode):
         elif mode == "random":
             random.shuffle(seq)
     return numpy.array(seq, dtype=numpy.dtype("int32"))
-
-
-def pretty_name(prefix, params):
-    collected = []
-    for k, v in params.items():
-        collected.append(k + "=" + str(v))
-    return prefix + "[" + ", ".join(collected) + "]"
 
 
 def create_expected_dense(mat, row, iseq, keep):
@@ -86,22 +87,24 @@ def compare_list_of_vectors(x, y):
         assert (x[i] == y[i]).all()
 
 
-def quick_test_suite(mat):
+def quick_test_suite(subtests, mat):
     # Quick tests, mostly to verify that the functions work with other types.
-    ptr = tatami_python_test.WrappedMatrix(mat, 0.2, True)
+    ptr = tatami_python_test.WrappedMatrix(mat, 10000, True)
 
-    iseq = create_predictions(mat.shape[0], 1, "forward")
-    all_expected = create_expected_dense(mat, True, iseq, None)
-    extracted = ptr.extract_dense(True, iseq, None, False)
-    compare_list_of_vectors(extracted, all_expected)
+    with subtests.test(msg="quick row"):
+        iseq = create_predictions(mat.shape[0], 1, "forward")
+        all_expected = create_expected_dense(mat, True, iseq, None)
+        extracted = ptr.extract_dense(True, iseq, None, False)
+        compare_list_of_vectors(extracted, all_expected)
 
-    iseq = create_predictions(mat.shape[1], 1, "forward")
-    all_expected = create_expected_dense(mat, False, iseq, None)
-    extracted = ptr.extract_dense(False, iseq, None, True)
-    compare_list_of_vectors(extracted, all_expected)
+    with subtests.test(msg="quick column"):
+        iseq = create_predictions(mat.shape[1], 1, "forward")
+        all_expected = create_expected_dense(mat, False, iseq, None)
+        extracted = ptr.extract_dense(False, iseq, None, True)
+        compare_list_of_vectors(extracted, all_expected)
 
 
-def full_test_suite(mat):
+def full_test_suite(subtests, mat):
     scenarios = expand_grid({
         "cache": [0, 0.01, 0.1, 0.5],
         "row": [True, False],
@@ -111,44 +114,48 @@ def full_test_suite(mat):
     })
 
     for scen in scenarios:
-        cache = scen["cache"]
-        row = scen["row"]
-        oracle = scen["oracle"]
-        mode = scen["mode"]
-        step = scen["step"]
+        with subtests.test(msg="full", scen=scen):
+            cache = scen["cache"]
+            row = scen["row"]
+            oracle = scen["oracle"]
+            mode = scen["mode"]
+            step = scen["step"]
 
-        iterdim = mat.shape[1 - int(row)]
-        otherdim = mat.shape[int(row)]
-        iseq = create_predictions(iterdim, step, mode)
+            iterdim = mat.shape[1 - int(row)]
+            otherdim = mat.shape[int(row)]
+            iseq = create_predictions(iterdim, step, mode)
 
-        cache_size = get_cache_size(mat, cache)
-        ptr = tatami_python_test.WrappedMatrix(mat, cache_size, cache_size > 0)
+            # Dense extraction.
+            cache_size = get_cache_size(mat, cache, False)
+            ptr = tatami_python_test.WrappedMatrix(mat, cache_size, cache_size > 0)
 
-        print(pretty_name("dense full ", scen))
-        all_expected = create_expected_dense(mat, row, iseq, None)
-        extracted = ptr.extract_dense(row, iseq, None, oracle)
-        compare_list_of_vectors(extracted, all_expected)
+            all_expected = create_expected_dense(mat, row, iseq, None)
+            extracted = ptr.extract_dense(row, iseq, None, oracle)
+            compare_list_of_vectors(extracted, all_expected)
 
-        print(pretty_name("sparse full ", scen))
-        extracted_sparse = ptr.extract_sparse(row, iseq, None, oracle, needs_value=True, needs_index=True)
-        compare_list_of_vectors(fill_sparse(extracted_sparse, otherdim, None), all_expected)
+            # Sparse extraction.
+            cache_size = get_cache_size(mat, cache, True)
+            ptr = tatami_python_test.WrappedMatrix(mat, cache_size, cache_size > 0)
 
-        extracted_index = ptr.extract_sparse(row, iseq, None, oracle, needs_value=False, needs_index=True)
-        compare_list_of_vectors(extracted_index, [y["index"] for y in extracted_sparse])
+            extracted_sparse = ptr.extract_sparse(row, iseq, None, oracle, needs_value=True, needs_index=True)
+            compare_list_of_vectors(fill_sparse(extracted_sparse, otherdim, None), all_expected)
 
-        extracted_value = ptr.extract_sparse(row, iseq, None, oracle, needs_value=True, needs_index=False)
-        compare_list_of_vectors(extracted_value, [y["value"] for y in extracted_sparse])
+            extracted_index = ptr.extract_sparse(row, iseq, None, oracle, needs_value=False, needs_index=True)
+            compare_list_of_vectors(extracted_index, [y["index"] for y in extracted_sparse])
 
-        extracted_n = ptr.extract_sparse(row, iseq, None, oracle, needs_value=False, needs_index=False)
-        assert extracted_n == [len(y["value"]) for y in extracted_sparse]
+            extracted_value = ptr.extract_sparse(row, iseq, None, oracle, needs_value=True, needs_index=False)
+            compare_list_of_vectors(extracted_value, [y["value"] for y in extracted_sparse])
 
-        if ptr.is_sparse():
-            prod = len(iseq) * otherdim
-            if prod > 0:
-                assert prod > sum(extracted_n)
+            extracted_n = ptr.extract_sparse(row, iseq, None, oracle, needs_value=False, needs_index=False)
+            assert extracted_n == [len(y["value"]) for y in extracted_sparse]
+
+            if ptr.is_sparse():
+                prod = len(iseq) * otherdim
+                if prod > 0:
+                    assert prod > sum(extracted_n)
 
 
-def block_test_suite(mat):
+def block_test_suite(subtests, mat):
     scenarios = expand_grid({
         "cache": [0, 0.01, 0.1, 0.5],
         "row": [True, False],
@@ -159,49 +166,53 @@ def block_test_suite(mat):
     })
 
     for scen in scenarios:
-        cache = scen["cache"]
-        row = scen["row"]
-        oracle = scen["oracle"]
-        mode = scen[ "mode"]
-        step = scen["step"]
-        block = scen["block"]
+        with subtests.test(msg="block", scen=scen):
+            cache = scen["cache"]
+            row = scen["row"]
+            oracle = scen["oracle"]
+            mode = scen[ "mode"]
+            step = scen["step"]
+            block = scen["block"]
 
-        iterdim = mat.shape[1 - int(row)]
-        otherdim = mat.shape[int(row)]
-        iseq = create_predictions(iterdim, step, mode)
-        cache_size = get_cache_size(mat, cache)
-        ptr = tatami_python_test.WrappedMatrix(mat, cache_size, cache_size > 0)
+            iterdim = mat.shape[1 - int(row)]
+            otherdim = mat.shape[int(row)]
+            iseq = create_predictions(iterdim, step, mode)
 
-        bstart = int(block[0] * otherdim)
-        blen = int(block[1] * otherdim)
-        block = (bstart, blen)
-        block_keep = range(bstart, blen + bstart)
+            bstart = int(block[0] * otherdim)
+            blen = int(block[1] * otherdim)
+            block = (bstart, blen)
+            block_keep = range(bstart, blen + bstart)
 
-        print(pretty_name("dense block ", scen))
-        all_expected = create_expected_dense(mat, row, iseq, block_keep)
-        extracted = ptr.extract_dense(row, iseq, block, oracle)
-        compare_list_of_vectors(extracted, all_expected)
+            # Dense extraction.
+            cache_size = get_cache_size(mat, cache, False)
+            ptr = tatami_python_test.WrappedMatrix(mat, cache_size, cache_size > 0)
 
-        print(pretty_name("sparse block ", scen))
-        extracted_sparse = ptr.extract_sparse(row, iseq, block, oracle, needs_value=True, needs_index=True)
-        compare_list_of_vectors(fill_sparse(extracted_sparse, otherdim, block_keep), all_expected)
+            all_expected = create_expected_dense(mat, row, iseq, block_keep)
+            extracted = ptr.extract_dense(row, iseq, block, oracle)
+            compare_list_of_vectors(extracted, all_expected)
 
-        extracted_index = ptr.extract_sparse(row, iseq, block, oracle, needs_value=False, needs_index=True)
-        compare_list_of_vectors(extracted_index, [y["index"] for y in extracted_sparse])
+            # Sparse extraction.
+            cache_size = get_cache_size(mat, cache, True)
+            ptr = tatami_python_test.WrappedMatrix(mat, cache_size, cache_size > 0)
+            extracted_sparse = ptr.extract_sparse(row, iseq, block, oracle, needs_value=True, needs_index=True)
+            compare_list_of_vectors(fill_sparse(extracted_sparse, otherdim, block_keep), all_expected)
 
-        extracted_value = ptr.extract_sparse(row, iseq, block, oracle, needs_value=True, needs_index=False)
-        compare_list_of_vectors(extracted_value, [y["value"] for y in extracted_sparse])
+            extracted_index = ptr.extract_sparse(row, iseq, block, oracle, needs_value=False, needs_index=True)
+            compare_list_of_vectors(extracted_index, [y["index"] for y in extracted_sparse])
 
-        extracted_n = ptr.extract_sparse(row, iseq, block, oracle, needs_value=False, needs_index=False)
-        assert extracted_n == [len(y["value"]) for y in extracted_sparse]
+            extracted_value = ptr.extract_sparse(row, iseq, block, oracle, needs_value=True, needs_index=False)
+            compare_list_of_vectors(extracted_value, [y["value"] for y in extracted_sparse])
 
-        if ptr.is_sparse():
-            prod = blen * len(iseq)
-            if prod > 0:
-                assert prod > sum(extracted_n)
+            extracted_n = ptr.extract_sparse(row, iseq, block, oracle, needs_value=False, needs_index=False)
+            assert extracted_n == [len(y["value"]) for y in extracted_sparse]
+
+            if ptr.is_sparse():
+                prod = blen * len(iseq)
+                if prod > 0:
+                    assert prod > sum(extracted_n)
 
 
-def index_test_suite(mat):
+def index_test_suite(subtests, mat):
     scenarios = expand_grid({
         "cache": [0, 0.01, 0.1, 0.5],
         "row": [True, False],
@@ -212,47 +223,52 @@ def index_test_suite(mat):
     })
 
     for scen in scenarios:
-        cache = scen["cache"]
-        row = scen["row"]
-        oracle = scen["oracle"]
-        mode = scen[ "mode"]
-        step = scen["step"]
-        index_params = scen["index"]
+        with subtests.test(msg="indexed", scen=scen):
+            cache = scen["cache"]
+            row = scen["row"]
+            oracle = scen["oracle"]
+            mode = scen[ "mode"]
+            step = scen["step"]
+            index_params = scen["index"]
 
-        iterdim = mat.shape[1 - int(row)]
-        otherdim = mat.shape[int(row)]
-        iseq = create_predictions(iterdim, step, mode)
-        cache_size = get_cache_size(mat, cache)
-        ptr = tatami_python_test.WrappedMatrix(mat, cache_size, cache_size > 0)
+            iterdim = mat.shape[1 - int(row)]
+            otherdim = mat.shape[int(row)]
+            iseq = create_predictions(iterdim, step, mode)
 
-        istart = int(index_params[0] * otherdim)
-        indices = numpy.array(range(istart, otherdim, index_params[1]), dtype=numpy.dtype("int32"))
+            istart = int(index_params[0] * otherdim)
+            indices = numpy.array(range(istart, otherdim, index_params[1]), dtype=numpy.dtype("int32"))
 
-        print(pretty_name("dense indexed ", scen))
-        all_expected = create_expected_dense(mat, row, iseq, indices)
-        extracted = ptr.extract_dense(row, iseq, indices, oracle)
-        compare_list_of_vectors(extracted, all_expected)
+            # Dense extraction.
+            cache_size = get_cache_size(mat, cache, False)
+            ptr = tatami_python_test.WrappedMatrix(mat, cache_size, cache_size > 0)
 
-        print(pretty_name("sparse indexed ", scen))
-        extracted_sparse = ptr.extract_sparse(row, iseq, indices, oracle, needs_value=True, needs_index=True)
-        compare_list_of_vectors(fill_sparse(extracted_sparse, otherdim, indices), all_expected)
+            all_expected = create_expected_dense(mat, row, iseq, indices)
+            extracted = ptr.extract_dense(row, iseq, indices, oracle)
+            compare_list_of_vectors(extracted, all_expected)
 
-        extracted_index = ptr.extract_sparse(row, iseq, indices, oracle, needs_value=False, needs_index=True)
-        compare_list_of_vectors(extracted_index, [y["index"] for y in extracted_sparse])
+            # Sparse extraction.
+            cache_size = get_cache_size(mat, cache, True)
+            ptr = tatami_python_test.WrappedMatrix(mat, cache_size, cache_size > 0)
 
-        extracted_value = ptr.extract_sparse(row, iseq, indices, oracle, needs_value=True, needs_index=False)
-        compare_list_of_vectors(extracted_value, [y["value"] for y in extracted_sparse])
+            extracted_sparse = ptr.extract_sparse(row, iseq, indices, oracle, needs_value=True, needs_index=True)
+            compare_list_of_vectors(fill_sparse(extracted_sparse, otherdim, indices), all_expected)
 
-        extracted_n = ptr.extract_sparse(row, iseq, indices, oracle, needs_value=False, needs_index=False)
-        assert extracted_n == [len(y["value"]) for y in extracted_sparse]
+            extracted_index = ptr.extract_sparse(row, iseq, indices, oracle, needs_value=False, needs_index=True)
+            compare_list_of_vectors(extracted_index, [y["index"] for y in extracted_sparse])
 
-        if ptr.is_sparse():
-            prod = len(indices) * len(iseq)
-            if prod > 0:
-                assert prod > sum(extracted_n)
+            extracted_value = ptr.extract_sparse(row, iseq, indices, oracle, needs_value=True, needs_index=False)
+            compare_list_of_vectors(extracted_value, [y["value"] for y in extracted_sparse])
+
+            extracted_n = ptr.extract_sparse(row, iseq, indices, oracle, needs_value=False, needs_index=False)
+            assert extracted_n == [len(y["value"]) for y in extracted_sparse]
+
+            if ptr.is_sparse():
+                prod = len(indices) * len(iseq)
+                if prod > 0:
+                    assert prod > sum(extracted_n)
 
 
-def reuse_test_suite(mat):
+def reuse_test_suite(subtests, mat):
     scenarios = expand_grid({
         "cache": [0, 0.01, 0.1, 0.5],
         "row": [True, False],
@@ -262,80 +278,81 @@ def reuse_test_suite(mat):
     })
 
     for scen in scenarios:
-        cache = scen["cache"]
-        row = scen["row"]
-        oracle = scen["oracle"]
-        mode = scen["mode"]
-        step = scen["step"]
+        with subtests.test(msg="reuse", scen=scen):
+            cache = scen["cache"]
+            row = scen["row"]
+            oracle = scen["oracle"]
+            mode = scen["mode"]
+            step = scen["step"]
 
-        iterdim = mat.shape[1 - int(row)]
-        otherdim = mat.shape[int(row)]
+            iterdim = mat.shape[1 - int(row)]
+            otherdim = mat.shape[int(row)]
 
-        # Creating a vector of predictions where we constantly double back to
-        # re-use previous elements.
-        iseq = []
-        i = 0
-        alternate = False
-        while i < iterdim:
-            current = range(i, min(iterdim, i + step * 2))
-            if mode == "alternating":
-                if alternate:
-                    current = reversed(current)
-                alternate = not alternate
-            iseq += current
-            i += step
+            # Creating a vector of predictions where we constantly double back to
+            # re-use previous elements.
+            iseq = []
+            i = 0
+            alternate = False
+            while i < iterdim:
+                current = range(i, min(iterdim, i + step * 2))
+                if mode == "alternating":
+                    if alternate:
+                        current = reversed(current)
+                    alternate = not alternate
+                iseq += current
+                i += step
 
-        cache_size = get_cache_size(mat, cache)
-        ptr = tatami_python_test.WrappedMatrix(mat, cache_size, cache_size > 0)
+            cache_size = get_cache_size(mat, cache, False)
+            ptr = tatami_python_test.WrappedMatrix(mat, cache_size, cache_size > 0)
+            all_expected = create_expected_dense(mat, row, iseq, None)
+            extracted = ptr.extract_dense(row, iseq, None, oracle)
+            compare_list_of_vectors(extracted, all_expected)
 
-        print(pretty_name("dense full ", scen))
-        all_expected = create_expected_dense(mat, row, iseq, None)
-        extracted = ptr.extract_dense(row, iseq, None, oracle)
-        compare_list_of_vectors(extracted, all_expected)
-
-        print(pretty_name("sparse full ", scen))
-        extracted_sparse = ptr.extract_sparse(row, iseq, None, oracle, needs_value=True, needs_index=True)
-        compare_list_of_vectors(fill_sparse(extracted_sparse, otherdim, None), all_expected)
+            cache_size = get_cache_size(mat, cache, True)
+            ptr = tatami_python_test.WrappedMatrix(mat, cache_size, cache_size > 0)
+            extracted_sparse = ptr.extract_sparse(row, iseq, None, oracle, needs_value=True, needs_index=True)
+            compare_list_of_vectors(fill_sparse(extracted_sparse, otherdim, None), all_expected)
 
 
-def parallel_test_suite(mat):
+def parallel_test_suite(subtests, mat):
     shape = (range(mat.shape[0]), range(mat.shape[1]))
     extracted = delayedarray.extract_dense_array(mat, shape)
     refr = extracted.sum(axis=1)
     refc = extracted.sum(axis=0)
 
     for cache in [0, 0.01, 0.1, 0.5]: 
-        cache_size = get_cache_size(mat, cache)
-        ptr = tatami_python_test.WrappedMatrix(mat, cache_size, cache_size > 0)
+        with subtests.test(msg="dense sums", cache=cache):
+            cache_size = get_cache_size(mat, cache, False)
+            ptr = tatami_python_test.WrappedMatrix(mat, cache_size, cache_size > 0)
 
-        print("dense rowsums [cache=" + str(cache) + "]")
-        assert numpy.allclose(refr, ptr.dense_sum(True, True, 1))
-        assert numpy.allclose(refr, ptr.dense_sum(True, False, 1))
-        assert numpy.allclose(refr, ptr.dense_sum(True, True, 3))
-        assert numpy.allclose(refr, ptr.dense_sum(True, False, 3))
+            assert numpy.allclose(refr, ptr.dense_sum(True, True, 1))
+            assert numpy.allclose(refr, ptr.dense_sum(True, False, 1))
+            assert numpy.allclose(refr, ptr.dense_sum(True, True, 3))
+            assert numpy.allclose(refr, ptr.dense_sum(True, False, 3))
 
-        print("dense colsums [cache=" + str(cache) + "]")
-        assert numpy.allclose(refc, ptr.dense_sum(False, True, 1))
-        assert numpy.allclose(refc, ptr.dense_sum(False, False, 1))
-        assert numpy.allclose(refc, ptr.dense_sum(False, True, 3))
-        assert numpy.allclose(refc, ptr.dense_sum(False, False, 3))
+            assert numpy.allclose(refc, ptr.dense_sum(False, True, 1))
+            assert numpy.allclose(refc, ptr.dense_sum(False, False, 1))
+            assert numpy.allclose(refc, ptr.dense_sum(False, True, 3))
+            assert numpy.allclose(refc, ptr.dense_sum(False, False, 3))
 
-        print("sparse rowsums [cache=" + str(cache) + "]")
-        assert numpy.allclose(refr, ptr.sparse_sum(True, True, 1))
-        assert numpy.allclose(refr, ptr.sparse_sum(True, False, 1))
-        assert numpy.allclose(refr, ptr.sparse_sum(True, True, 3))
-        assert numpy.allclose(refr, ptr.sparse_sum(True, False, 3))
+        with subtests.test(msg="sparse sums", cache=cache):
+            cache_size = get_cache_size(mat, cache, True)
+            ptr = tatami_python_test.WrappedMatrix(mat, cache_size, cache_size > 0)
 
-        print("sparse colsums [cache=" + str(cache) + "]")
-        assert numpy.allclose(refc, ptr.sparse_sum(False, True, 1))
-        assert numpy.allclose(refc, ptr.sparse_sum(False, False, 1))
-        assert numpy.allclose(refc, ptr.sparse_sum(False, True, 3))
-        assert numpy.allclose(refc, ptr.sparse_sum(False, False, 3))
+            assert numpy.allclose(refr, ptr.sparse_sum(True, True, 1))
+            assert numpy.allclose(refr, ptr.sparse_sum(True, False, 1))
+            assert numpy.allclose(refr, ptr.sparse_sum(True, True, 3))
+            assert numpy.allclose(refr, ptr.sparse_sum(True, False, 3))
+
+            assert numpy.allclose(refc, ptr.sparse_sum(False, True, 1))
+            assert numpy.allclose(refc, ptr.sparse_sum(False, False, 1))
+            assert numpy.allclose(refc, ptr.sparse_sum(False, True, 3))
+            assert numpy.allclose(refc, ptr.sparse_sum(False, False, 3))
 
 
-def big_test_suite(mat):
-    full_test_suite(mat)
-    block_test_suite(mat)
-    index_test_suite(mat)
-    reuse_test_suite(mat)
-    parallel_test_suite(mat)
+def big_test_suite(subtests, mat):
+    full_test_suite(subtests, mat)
+    block_test_suite(subtests, mat)
+    index_test_suite(subtests, mat)
+    reuse_test_suite(subtests, mat)
+    parallel_test_suite(subtests, mat)

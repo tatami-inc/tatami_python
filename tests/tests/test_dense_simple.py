@@ -4,7 +4,7 @@ import tatami_python_test
 import compare
 
 
-def test_numpy_row_major():
+def test_numpy_row_major(subtests):
     NR = 34
     NC = 82
     mat = numpy.random.rand(NR, NC)
@@ -21,7 +21,7 @@ def test_numpy_row_major():
     assert not wrapped.is_sparse()
     assert wrapped.prefer_rows()
 
-    compare.big_test_suite(mat)
+    compare.big_test_suite(subtests, mat)
 
 
 # Mock class for checking column major extraction.
@@ -51,7 +51,7 @@ def chunk_grid_from_farray(x: farray):
     return delayedarray.SimpleGrid(([x.shape[0]], delayedarray.RegularTicks(1, x.shape[1])), cost_factor=1)
 
 
-def test_numpy_col_major():
+def test_numpy_col_major(subtests):
     NR = 54
     NC = 62
     mat = farray(numpy.random.rand(NR, NC))
@@ -67,31 +67,31 @@ def test_numpy_col_major():
     assert not wrapped.is_sparse()
     assert not wrapped.prefer_rows()
 
-    compare.big_test_suite(mat)
+    compare.big_test_suite(subtests, mat)
 
 
-def test_numpy_types():
+def test_numpy_types(subtests, ):
     NR = 100
     NC = 80
     mat = numpy.random.rand(NR, NC) * 100
 
-    compare.quick_test_suite(mat.astype(numpy.dtype("int8")))
-    compare.quick_test_suite(mat.astype(numpy.dtype("uint8")))
-    compare.quick_test_suite(mat.astype(numpy.dtype("int16")))
-    compare.quick_test_suite(mat.astype(numpy.dtype("uint16")))
-    compare.quick_test_suite(mat.astype(numpy.dtype("int32")))
-    compare.quick_test_suite(mat.astype(numpy.dtype("uint32")))
-    compare.quick_test_suite(mat.astype(numpy.dtype("float")))
-    compare.quick_test_suite(mat.astype(numpy.dtype("double")))
+    compare.quick_test_suite(subtests, mat.astype(numpy.dtype("int8")))
+    compare.quick_test_suite(subtests, mat.astype(numpy.dtype("uint8")))
+    compare.quick_test_suite(subtests, mat.astype(numpy.dtype("int16")))
+    compare.quick_test_suite(subtests, mat.astype(numpy.dtype("uint16")))
+    compare.quick_test_suite(subtests, mat.astype(numpy.dtype("int32")))
+    compare.quick_test_suite(subtests, mat.astype(numpy.dtype("uint32")))
+    compare.quick_test_suite(subtests, mat.astype(numpy.dtype("float")))
+    compare.quick_test_suite(subtests, mat.astype(numpy.dtype("double")))
 
 
-def test_numpy_empty():
+def test_numpy_empty(subtests):
     NR = 0 
     NC = 10
     mat = numpy.random.rand(NR, NC)
-    compare.quick_test_suite(mat)
+    compare.quick_test_suite(subtests, mat)
 
     NR = 10
     NC = 0
     mat = numpy.random.rand(NR, NC)
-    compare.quick_test_suite(mat)
+    compare.quick_test_suite(subtests, mat)
