@@ -11,6 +11,7 @@
 
 #include <vector>
 #include <stdexcept>
+#include <optional>
 
 namespace tatami_python {
 
@@ -60,7 +61,6 @@ public:
     ) : 
         my_matrix(matrix),
         my_sparse_extractor(sparse_extractor),
-        my_extract_args(2),
         my_row(row),
         my_factory(
             1,
@@ -73,13 +73,22 @@ public:
         my_oracle(std::move(oracle))
     {
         initialize_tmp_buffers<Index_>(row, 1, non_target_extract.size(), needs_value, my_value_tmp, needs_index, my_index_tmp);
-        my_extract_args[static_cast<int>(row)] = std::move(non_target_extract);
+        my_extract_args.emplace(2);
+        (*my_extract_args)[static_cast<int>(row)] = std::move(non_target_extract);
+    }
+
+    ~SoloSparseCore() {
+#ifdef TATAMI_PYTHON_PARALLELIZE_UNKNOWN 
+        TATAMI_PYTHON_SERIALIZE([&]() -> void {
+            my_extract_args.reset();
+        });
+#endif
     }
 
 private:
     const pybind11::object& my_matrix;
     const pybind11::object& my_sparse_extractor;
-    pybind11::tuple my_extract_args;
+    std::optional<pybind11::tuple> my_extract_args;
 
     bool my_row;
 
@@ -104,8 +113,8 @@ public:
         TATAMI_PYTHON_SERIALIZE([&]() -> void {
 #endif
 
-        my_extract_args[static_cast<int>(!my_row)] = create_indexing_array(i, 1);
-        const auto obj = my_sparse_extractor(my_matrix, my_extract_args);
+        (*my_extract_args)[static_cast<int>(!my_row)] = create_indexing_array(i, 1);
+        const auto obj = my_sparse_extractor(my_matrix, *my_extract_args);
         parse_sparse_matrix(
             obj,
             my_row,
@@ -142,7 +151,6 @@ public:
     ) : 
         my_matrix(matrix),
         my_sparse_extractor(sparse_extractor),
-        my_extract_args(2),
         my_row(row),
         my_chunk_ticks(ticks),
         my_chunk_map(map),
@@ -156,13 +164,22 @@ public:
         my_cache(stats.max_slabs_in_cache)
     {
         initialize_tmp_buffers<Index_>(row, max_target_chunk_length, non_target_extract.size(), needs_value, my_value_tmp, needs_index, my_index_tmp);
-        my_extract_args[static_cast<int>(row)] = std::move(non_target_extract);
+        my_extract_args.emplace(2);
+        (*my_extract_args)[static_cast<int>(row)] = std::move(non_target_extract);
+    }
+
+    ~MyopicSparseCore() {
+#ifdef TATAMI_PYTHON_PARALLELIZE_UNKNOWN 
+        TATAMI_PYTHON_SERIALIZE([&]() -> void {
+            my_extract_args.reset();
+        });
+#endif
     }
 
 private:
     const pybind11::object& my_matrix;
     const pybind11::object& my_sparse_extractor;
-    pybind11::tuple my_extract_args;
+    std::optional<pybind11::tuple> my_extract_args;
 
     bool my_row;
 
@@ -194,8 +211,8 @@ public:
                 TATAMI_PYTHON_SERIALIZE([&]() -> void {
 #endif
 
-                my_extract_args[static_cast<int>(!my_row)] = create_indexing_array<Index_>(chunk_start, chunk_len);
-                const auto obj = my_sparse_extractor(my_matrix, my_extract_args);
+                (*my_extract_args)[static_cast<int>(!my_row)] = create_indexing_array<Index_>(chunk_start, chunk_len);
+                const auto obj = my_sparse_extractor(my_matrix, *my_extract_args);
                 parse_sparse_matrix(
                     obj,
                     my_row,
@@ -235,7 +252,6 @@ public:
     ) : 
         my_matrix(matrix),
         my_sparse_extractor(sparse_extractor),
-        my_extract_args(2),
         my_row(row),
         my_chunk_ticks(ticks),
         my_chunk_map(map),
@@ -253,13 +269,22 @@ public:
         // map.size() is equal to the extent of the target dimension.
         // We don't know how many chunks we might bundle together in a single call, so better overestimate to be safe.
         initialize_tmp_buffers<Index_>(row, map.size(), non_target_extract.size(), needs_value, my_value_tmp, needs_index, my_index_tmp);
-        my_extract_args[static_cast<int>(row)] = std::move(non_target_extract);
+        my_extract_args.emplace(2);
+        (*my_extract_args)[static_cast<int>(row)] = std::move(non_target_extract);
+    }
+
+    ~OracularSparseCore() {
+#ifdef TATAMI_PYTHON_PARALLELIZE_UNKNOWN 
+        TATAMI_PYTHON_SERIALIZE([&]() -> void {
+            my_extract_args.reset();
+        });
+#endif
     }
 
 private:
     const pybind11::object& my_matrix;
     const pybind11::object& my_sparse_extractor;
-    pybind11::tuple my_extract_args;
+    std::optional<pybind11::tuple> my_extract_args;
 
     bool my_row;
 
@@ -338,8 +363,8 @@ public:
                     current += chunk_len;
                 }
 
-                my_extract_args[static_cast<int>(!my_row)] = std::move(primary_extract);
-                auto obj = my_sparse_extractor(my_matrix, my_extract_args);
+                (*my_extract_args)[static_cast<int>(!my_row)] = std::move(primary_extract);
+                auto obj = my_sparse_extractor(my_matrix, *my_extract_args);
                 parse_sparse_matrix(
                     obj,
                     my_row,

@@ -5,6 +5,7 @@
 
 #ifdef TEST_CUSTOM_PARALLEL
 #define TATAMI_PYTHON_PARALLELIZE_UNKNOWN
+#define TATAMI_CUSTOM_PARALLEL ::tatami_python::parallelize
 #endif
 
 #include "tatami_python/tatami_python.hpp"

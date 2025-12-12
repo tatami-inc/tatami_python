@@ -1,8 +1,8 @@
 #ifndef TATAMI_PYTHON_TATAMI_PYTHON_HPP
 #define TATAMI_PYTHON_TATAMI_PYTHON_HPP
 
-#include "UnknownMatrix.hpp"
 #include "parallelize.hpp"
+#include "UnknownMatrix.hpp"
 
 /** 
  * @file tatami_python.hpp

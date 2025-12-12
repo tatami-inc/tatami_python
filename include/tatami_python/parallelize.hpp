@@ -9,7 +9,10 @@
  * @endcond
  */
 
-#include <mutex>
+#include "pybind11/pybind11.h"
+#include "subpar/subpar.hpp"
+
+#include <optional>
 
 #ifndef TATAMI_PYTHON_SERIALIZE
 #define TATAMI_PYTHON_SERIALIZE ::tatami_python::lock
@@ -23,42 +26,30 @@
 namespace tatami_python {
 
 /**
- * @cond
- */
-inline std::mutex* mut_ptr = NULL;
-/**
- * @endcond
- */
-
-/**
- * Retrieve a global mutex object for all **tatami_python** applications.
- * This function is only available if `TATAMI_PYTHON_PARALLELIZE_UNKNOWN` is defined.
+ * Replacement for `tatami::parallelize()` that applies a function to a set of tasks in parallel, usually for iterating over a dimension of a `Matrix`.
+ * This releases the Python GIL so that it can be re-acquired by `UnknownMatrix` extractors in each individual thread.
  *
- * @return Global mutex for locking all calls to the Python interpreter.
- * If `set_mutex()` was called with a non-`NULL` pointer, the provided instance will be used;
- * otherwise, a default instance will be instantiated.
+ * @tparam Function_ Function to be applied to a contiguous range of tasks.
+ * This should accept three arguments:
+ * - `thread`, the thread number executing this task range.
+ *   This will be passed as an `int`.
+ * - `task_start`, the start index of the task range.
+ *   This will be passed as an `Index_`.
+ * - `task_length`, the number of tasks in the task range.
+ *   This will be passed as an `Index_`.
+ * @tparam Index_ Integer type for the number of tasks.
+ *
+ * @param fun Function that executes a contiguous range of tasks.
+ * @param tasks Number of tasks.
+ * @param threads Number of threads.
  */
-inline std::mutex& mutex() {
-    if (mut_ptr) {
-        return *mut_ptr;
-    } else {
-        // In theory, this should end up resolving to a single instance, even across dynamically linked libraries:
-        // https://stackoverflow.com/questions/52851239/local-static-variable-linkage-in-a-template-class-static-member-function
-        // In practice, this doesn't seem to be the case on a Mac, requiring us to use `set_mutex()`.
-        static std::mutex mut;
-        return mut;
+template<class Function_, class Index_>
+void parallelize(const Function_ fun, const Index_ tasks, int threads) {
+    std::optional<pybind11::gil_scoped_release> ungil;
+    if (PyGILState_Check()) {
+        ungil.emplace();
     }
-}
-
-/**
- * Set a global mutex for all **tatami_python** applications.
- * This function is only available if `TATAMI_PYTHON_PARALLELIZE_UNKNOWN` is defined.
- * Calling this function is occasionally necessary if `mutex()` resolves to different instances of a `std::mutex` across different libraries.
- *
- * @param Pointer to a different global mutex, or `NULL` to unset this pointer.
- */
-inline void set_mutex(std::mutex* ptr) {
-    mut_ptr = ptr;
+    subpar::parallelize_range(threads, tasks, std::move(fun));
 }
 
 /**
@@ -67,13 +58,15 @@ inline void set_mutex(std::mutex* ptr) {
  * which should accept a function object and execute it in some serial context.
  *
  * @tparam Function_ Function that accepts no arguments.
- * @param fun Function to be evaluated after `mutex()` is locked.
+ * @param fun Function to be evaluated after the GIL is acquired.
  * This typically involves calls to the Python interpreter or API.
  */
 template<typename Function_>
 void lock(Function_ fun) {
-    auto& mut = mutex();
-    std::lock_guard lck(mut);
+    std::optional<pybind11::gil_scoped_acquire> gil;
+    if (!PyGILState_Check()) {
+        gil.emplace();
+    }
     fun();
 }
 

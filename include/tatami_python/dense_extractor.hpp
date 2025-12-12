@@ -13,6 +13,7 @@
 #include <vector>
 #include <stdexcept>
 #include <type_traits>
+#include <optional>
 
 namespace tatami_python {
 
@@ -40,18 +41,26 @@ public:
     ) :
         my_matrix(matrix),
         my_dense_extractor(dense_extractor),
-        my_extract_args(2),
         my_row(row),
         my_non_target_length(non_target_extract.size()),
         my_oracle(std::move(oracle))
     {
-        my_extract_args[static_cast<int>(row)] = std::move(non_target_extract);
+        my_extract_args.emplace(2);
+        (*my_extract_args)[static_cast<int>(row)] = std::move(non_target_extract);
+    }
+
+    ~SoloDenseCore() {
+#ifdef TATAMI_PYTHON_PARALLELIZE_UNKNOWN 
+        TATAMI_PYTHON_SERIALIZE([&]() -> void {
+            my_extract_args.reset();
+        });
+#endif
     }
 
 private:
     const pybind11::object& my_matrix;
     const pybind11::object& my_dense_extractor;
-    pybind11::tuple my_extract_args;
+    std::optional<pybind11::tuple> my_extract_args;
 
     bool my_row;
     Index_ my_non_target_length;
@@ -70,9 +79,8 @@ public:
         TATAMI_PYTHON_SERIALIZE([&]() -> void {
 #endif
 
-        my_extract_args[static_cast<int>(!my_row)] = create_indexing_array<Index_>(i, 1);
-        auto obj = my_dense_extractor(my_matrix, my_extract_args);
-        my_extract_args[static_cast<int>(!my_row)] = pybind11::none(); // release the memory once we don't need it.
+        (*my_extract_args)[static_cast<int>(!my_row)] = create_indexing_array<Index_>(i, 1);
+        auto obj = my_dense_extractor(my_matrix, *my_extract_args);
 
         if (my_row) {
             parse_dense_matrix<Index_>(obj, 0, 0, true, buffer, 1, my_non_target_length);
@@ -101,7 +109,6 @@ public:
     ) :
         my_matrix(matrix),
         my_dense_extractor(dense_extractor),
-        my_extract_args(2),
         my_row(row),
         my_non_target_length(non_target_extract.size()),
         my_chunk_ticks(ticks),
@@ -109,13 +116,22 @@ public:
         my_factory(stats),
         my_cache(stats.max_slabs_in_cache)
     {
-        my_extract_args[static_cast<int>(row)] = std::move(non_target_extract);
+        my_extract_args.emplace(2);
+        (*my_extract_args)[static_cast<int>(row)] = std::move(non_target_extract);
+    }
+
+    ~MyopicDenseCore() {
+#ifdef TATAMI_PYTHON_PARALLELIZE_UNKNOWN 
+        TATAMI_PYTHON_SERIALIZE([&]() -> void {
+            my_extract_args.reset();
+        });
+#endif
     }
 
 private:
     const pybind11::object& my_matrix;
     const pybind11::object& my_dense_extractor;
-    pybind11::tuple my_extract_args;
+    std::optional<pybind11::tuple> my_extract_args;
 
     bool my_row;
     Index_ my_non_target_length;
@@ -144,9 +160,8 @@ public:
 
                 const auto chunk_start = my_chunk_ticks[id];
                 const Index_ chunk_len = my_chunk_ticks[id + 1] - chunk_start;
-                my_extract_args[static_cast<int>(!my_row)] = create_indexing_array<Index_>(chunk_start, chunk_len);
-                auto obj = my_dense_extractor(my_matrix, my_extract_args);
-                my_extract_args[static_cast<int>(!my_row)] = pybind11::none(); // release the memory once we don't need it.
+                (*my_extract_args)[static_cast<int>(!my_row)] = create_indexing_array<Index_>(chunk_start, chunk_len);
+                auto obj = my_dense_extractor(my_matrix, *my_extract_args);
 
                 if (my_row) {
                     parse_dense_matrix<Index_>(obj, 0, 0, true, cache.data, chunk_len, my_non_target_length);
@@ -180,7 +195,6 @@ public:
     ) :
         my_matrix(matrix),
         my_dense_extractor(dense_extractor),
-        my_extract_args(2),
         my_row(row),
         my_non_target_length(non_target_extract.size()),
         my_chunk_ticks(ticks),
@@ -188,13 +202,22 @@ public:
         my_factory(stats),
         my_cache(std::move(oracle), stats.max_slabs_in_cache)
     {
-        my_extract_args[static_cast<int>(row)] = std::move(non_target_extract);
+        my_extract_args.emplace(2);
+        (*my_extract_args)[static_cast<int>(row)] = std::move(non_target_extract);
+    }
+
+    ~OracularDenseCore() {
+#ifdef TATAMI_PYTHON_PARALLELIZE_UNKNOWN 
+        TATAMI_PYTHON_SERIALIZE([&]() -> void {
+            my_extract_args.reset();
+        });
+#endif
     }
 
 private:
     const pybind11::object& my_matrix;
     const pybind11::object& my_dense_extractor;
-    pybind11::tuple my_extract_args;
+    std::optional<pybind11::tuple> my_extract_args;
 
     bool my_row;
     Index_ my_non_target_length;
@@ -246,8 +269,8 @@ public:
                     current += chunk_len;
                 }
 
-                my_extract_args[static_cast<int>(!my_row)] = std::move(primary_extract);
-                auto obj = my_dense_extractor(my_matrix, my_extract_args);
+                (*my_extract_args)[static_cast<int>(!my_row)] = std::move(primary_extract);
+                auto obj = my_dense_extractor(my_matrix, *my_extract_args);
 
                 current = 0;
                 for (const auto& p : to_populate) {
