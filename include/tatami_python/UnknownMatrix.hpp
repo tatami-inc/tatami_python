@@ -7,6 +7,7 @@
 
 #include "dense_extractor.hpp"
 #include "sparse_extractor.hpp"
+#include "parallelize.hpp"
 
 #include <vector>
 #include <memory>
@@ -237,8 +238,6 @@ private:
         tatami::MaybeOracle<oracle_, Index_> oracle,
         Args_&& ... args
     ) const {
-        std::unique_ptr<tatami::DenseExtractor<oracle_, Value_, Index_> > output;
-
         Index_ max_target_chunk_length = max_primary_chunk_length(row);
         tatami_chunked::SlabCacheStats<Index_> stats(
             /* target length = */ max_target_chunk_length,
@@ -251,10 +250,11 @@ private:
 
         const auto& map = chunk_map(row);
         const auto& ticks = chunk_ticks(row);
-        bool solo = (stats.max_slabs_in_cache == 0);
+        const bool solo = (stats.max_slabs_in_cache == 0);
 
+        std::unique_ptr<tatami::DenseExtractor<oracle_, Value_, Index_> > output;
 #ifdef TATAMI_PYTHON_PARALLELIZE_UNKNOWN 
-        pybind11::gil_scoped_acquire gillock();
+        TATAMI_PYTHON_SERIALIZE([&]() -> void {
 #endif
 
         if (!my_sparse) {
@@ -319,6 +319,10 @@ private:
                 );
             }
         }
+
+#ifdef TATAMI_PYTHON_PARALLELIZE_UNKNOWN 
+        });
+#endif
 
         return output;
     }
@@ -443,8 +447,6 @@ public:
         const tatami::Options& opt, 
         Args_&& ... args
     ) const {
-        std::unique_ptr<tatami::SparseExtractor<oracle_, Value_, Index_> > output;
-
         Index_ max_target_chunk_length = max_primary_chunk_length(row);
         tatami_chunked::SlabCacheStats<Index_> stats(
             /* target_length = */ max_target_chunk_length,
@@ -457,12 +459,13 @@ public:
 
         const auto& map = chunk_map(row);
         const auto& ticks = chunk_ticks(row);
-        bool needs_value = opt.sparse_extract_value;
-        bool needs_index = opt.sparse_extract_index;
-        bool solo = stats.max_slabs_in_cache == 0;
+        const bool needs_value = opt.sparse_extract_value;
+        const bool needs_index = opt.sparse_extract_index;
+        const bool solo = stats.max_slabs_in_cache == 0;
 
+        std::unique_ptr<tatami::SparseExtractor<oracle_, Value_, Index_> > output;
 #ifdef TATAMI_PYTHON_PARALLELIZE_UNKNOWN 
-        pybind11::gil_scoped_acquire gillock();
+        TATAMI_PYTHON_SERIALIZE([&]() -> void {
 #endif
 
         if (solo) {
@@ -499,6 +502,10 @@ public:
                 )
             );
         }
+
+#ifdef TATAMI_PYTHON_PARALLELIZE_UNKNOWN 
+        });
+#endif
 
         return output;
     }

@@ -16,6 +16,8 @@ pybind11_add_module(tatami_python_test
 target_include_directories(tatami_python_test PRIVATE "${ASSORTHEAD_INCLUDE_DIR}")
 target_include_directories(tatami_python_test PRIVATE "../../include")
 
+target_compile_definitions(tatami_python_test PRIVATE TEST_CUSTOM_PARALLEL=1)
+
 set_property(TARGET tatami_python_test PROPERTY CXX_STANDARD 17)
 
 target_link_libraries(tatami_python_test PRIVATE pybind11::pybind11)

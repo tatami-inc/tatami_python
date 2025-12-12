@@ -1,12 +1,10 @@
 #include <vector>
 #include <algorithm>
-#include <iostream>
 #include <cstdint>
+#include <memory>
 
 #ifdef TEST_CUSTOM_PARALLEL
 #define TATAMI_PYTHON_PARALLELIZE_UNKNOWN
-#include "tatami_python/parallelize.hpp"
-#define TATAMI_CUSTOM_PARALLEL tatami_python::parallelize
 #endif
 
 #include "tatami_python/tatami_python.hpp"
@@ -493,9 +491,9 @@ pybind11::array_t<double> dense_sums(
     ) -> void {
         auto ext = [&]() {
             if constexpr(oracle_) {
-                return tatami::new_extractor<false, oracle_>(ptr, row, std::make_shared<tatami::ConsecutiveOracle<std::int32_t> >(start, len));
+                return tatami::new_extractor<false, oracle_>(*ptr, row, std::make_shared<tatami::ConsecutiveOracle<std::int32_t> >(start, len));
             } else {
-                return tatami::new_extractor<false, oracle_>(ptr.get(), row, false);
+                return tatami::new_extractor<false, oracle_>(*ptr, row, false);
             }
         }();
 
