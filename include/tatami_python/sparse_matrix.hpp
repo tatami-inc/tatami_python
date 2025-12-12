@@ -72,15 +72,14 @@ void dump_to_buffer(const pybind11::array& input, Type_* const buffer) {
  * in which to store the values of the structural non-zero elements.
  * This may also be NULL in which case no values are extracted.
  * On input, the contents of the array are ignored by this function. 
- * @param vbuffer Pointer to an array of length greater than or equal to the number of rows of `matrix`,
+ * @param ibuffer Pointer to an array of length greater than or equal to the number of rows of `matrix`,
  * in which to store the indices of the structural non-zero elements.
  * This may also be NULL in which case no values are extracted.
  * On input, the contents of the array are ignored by this function. 
  * @param fun Function to apply to each leaf node, accepting two arguments:
- * .
- * 1. `c`, an `Index_` specifying the index of the leaf node, i.e., the column index. 
- * 2. `n`, an `Index_` specifying the number of structural non-zero elements for `c`.
- *    The first `n` entries of `vbuffer` and `ibuffer` will be filled with the values and indices of these non-zero elements, respectively, if they are not NULL.
+ * - `c`, an `Index_` specifying the index of the leaf node, i.e., the column index. 
+ * - `n`, an `Index_` specifying the number of structural non-zero elements for `c`.
+ *   The first `n` entries of `vbuffer` and `ibuffer` will be filled with the values and indices of these non-zero elements, respectively, if they are not NULL.
  * .
  * The return value of this function is ignored.
  * Note that `fun` may not be called for all `c` - if leaf nodes do not contain any data, they will be skipped.

@@ -16,6 +16,11 @@
 #include <optional>
 #include <cstddef>
 
+/**
+ * @file UnknownMatrix.hpp
+ * @brief Python matrix of unknown format.
+ */
+
 namespace tatami_python {
 
 /**

@@ -15,6 +15,9 @@
 #include <optional>
 
 #ifndef TATAMI_PYTHON_SERIALIZE
+/**
+ * Macro function that accepts a function object and executes it in a serial context.
+ */
 #define TATAMI_PYTHON_SERIALIZE ::tatami_python::lock
 #endif 
 
