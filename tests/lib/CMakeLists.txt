@@ -20,6 +20,7 @@ target_include_directories(tatami_python_test PRIVATE "../../build/_deps/tatami_
 target_include_directories(tatami_python_test PRIVATE "../../include")
 
 target_compile_definitions(tatami_python_test PRIVATE TEST_CUSTOM_PARALLEL=1)
+target_compile_options(tatami_python_test PRIVATE -Wall -Wpedantic -Wextra -Werror)
 
 set_property(TARGET tatami_python_test PROPERTY CXX_STANDARD 17)
 

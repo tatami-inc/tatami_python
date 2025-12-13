@@ -152,7 +152,6 @@ pybind11::list dense_block(
     const std::int32_t len
 ) {
     auto ptr = reinterpret_cast<TestMatrix*>(ptr0);
-    const auto secondary = (!row ? ptr->nrow() : ptr->ncol());
     auto ext = create_extractor<false, oracle_>(*ptr, row, idx, first, len, true, true);
     const auto iptr = static_cast<const std::int32_t*>(idx.request().ptr);
     const std::size_t num = idx.size();
@@ -219,7 +218,6 @@ pybind11::list dense_indexed(
     const pybind11::array_t<std::int32_t>& subset
 ) {
     auto ptr = reinterpret_cast<TestMatrix*>(ptr0);
-    const auto secondary = (!row ? ptr->nrow() : ptr->ncol());
     auto ext = create_extractor<false, oracle_>(*ptr, row, idx, subset, true, true);
     const auto iptr = static_cast<const std::int32_t*>(idx.request().ptr);
     const std::size_t num = idx.size();
@@ -477,7 +475,7 @@ template<bool oracle_>
 pybind11::array_t<double> dense_sums(
     const std::uintptr_t ptr0,
     const bool row,
-    const std::int32_t num_threads
+    [[maybe_unused]] const std::int32_t num_threads
 ) {
     auto ptr = reinterpret_cast<TestMatrix*>(reinterpret_cast<void*>(ptr0));
     const auto primary = (row ? ptr->nrow() : ptr->ncol());
@@ -564,7 +562,7 @@ template<bool oracle_>
 pybind11::array_t<double> sparse_sums(
     const std::uintptr_t ptr0,
     const bool row,
-    const std::int32_t num_threads
+    [[maybe_unused]] const std::int32_t num_threads
 ) {
     auto ptr = reinterpret_cast<TestMatrix*>(reinterpret_cast<void*>(ptr0));
     const auto primary = (row ? ptr->nrow() : ptr->ncol());

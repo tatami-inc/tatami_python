@@ -93,7 +93,6 @@ void parse_Sparse2darray(const pybind11::object& matrix, Value_* const vbuffer, 
     auto svt = raw_svt.template cast<pybind11::list>();
 
     const auto shape = get_shape<Index_>(matrix);
-    const auto NR = shape.first;
     const auto NC = shape.second;
 
     for (I<decltype(NC)> c = 0; c < NC; ++c) {
