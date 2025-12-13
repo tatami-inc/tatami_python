@@ -90,7 +90,7 @@ void parse_Sparse2darray(const pybind11::object& matrix, Value_* const vbuffer, 
     if (pybind11::isinstance<pybind11::none>(raw_svt)) {
         return;
     }
-    auto svt = raw_svt.cast<pybind11::list>();
+    auto svt = raw_svt.template cast<pybind11::list>();
 
     const auto shape = get_shape<Index_>(matrix);
     const auto NR = shape.first;
@@ -102,18 +102,18 @@ void parse_Sparse2darray(const pybind11::object& matrix, Value_* const vbuffer, 
             continue;
         }
 
-        auto inner = raw_inner.cast<pybind11::tuple>();
+        auto inner = raw_inner.template cast<pybind11::tuple>();
         if (inner.size() != 2) {
             auto ctype = get_class_name(matrix);
             throw std::runtime_error("each entry of '<" + ctype + ">.contents' should be a tuple of length 2 or None");
         }
 
-        auto iinput = inner[0].cast<pybind11::array>();
+        auto iinput = inner[0].template cast<pybind11::array>();
         if (ibuffer != NULL) {
             dump_to_buffer(iinput, ibuffer);
         }
         if (vbuffer != NULL) {
-            auto vinput = inner[1].cast<pybind11::array>();
+            auto vinput = inner[1].template cast<pybind11::array>();
             dump_to_buffer(vinput, vbuffer);
         }
 

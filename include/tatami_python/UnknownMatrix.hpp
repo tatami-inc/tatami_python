@@ -83,10 +83,10 @@ public:
         tatami::can_cast_Index_to_container_size<pybind11::array_t<Index_> >(std::max(my_nrow, my_ncol));
 
         auto sparse = my_module.attr("is_sparse")(my_seed);
-        my_sparse = sparse.cast<bool>();
+        my_sparse = sparse.template cast<bool>();
 
         auto grid = my_module.attr("chunk_grid")(my_seed);
-        auto bounds = grid.attr("boundaries").cast<pybind11::tuple>();
+        auto bounds = grid.attr("boundaries").template cast<pybind11::tuple>();
         if (bounds.size() != 2) {
             auto ctype = get_class_name(seed);
             throw std::runtime_error("'chunk_grid(<" + ctype + ">).boundaries' should be a tuple of length 2");
