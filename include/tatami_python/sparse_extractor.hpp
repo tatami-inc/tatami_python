@@ -113,7 +113,7 @@ public:
         TATAMI_PYTHON_SERIALIZE([&]() -> void {
 #endif
 
-        (*my_extract_args)[static_cast<int>(!my_row)] = create_indexing_array(i, 1);
+        (*my_extract_args)[static_cast<int>(!my_row)] = create_indexing_array<Index_>(i, 1);
         const auto obj = my_sparse_extractor(my_matrix, *my_extract_args);
         parse_sparse_matrix(
             obj,
