@@ -150,7 +150,7 @@ $(function(){ initResizable(false); });
 <div class="line"><a id="l00090" name="l00090"></a><span class="lineno">   90</span>    <span class="keywordflow">if</span> (pybind11::isinstance&lt;pybind11::none&gt;(raw_svt)) {</div>
 <div class="line"><a id="l00091" name="l00091"></a><span class="lineno">   91</span>        <span class="keywordflow">return</span>;</div>
 <div class="line"><a id="l00092" name="l00092"></a><span class="lineno">   92</span>    }</div>
-<div class="line"><a id="l00093" name="l00093"></a><span class="lineno">   93</span>    <span class="keyword">auto</span> svt = raw_svt.cast&lt;pybind11::list&gt;();</div>
+<div class="line"><a id="l00093" name="l00093"></a><span class="lineno">   93</span>    <span class="keyword">auto</span> svt = raw_svt.template cast&lt;pybind11::list&gt;();</div>
 <div class="line"><a id="l00094" name="l00094"></a><span class="lineno">   94</span> </div>
 <div class="line"><a id="l00095" name="l00095"></a><span class="lineno">   95</span>    <span class="keyword">const</span> <span class="keyword">auto</span> shape = get_shape&lt;Index_&gt;(matrix);</div>
 <div class="line"><a id="l00096" name="l00096"></a><span class="lineno">   96</span>    <span class="keyword">const</span> <span class="keyword">auto</span> NR = shape.first;</div>
@@ -162,18 +162,18 @@ $(function(){ initResizable(false); });
 <div class="line"><a id="l00102" name="l00102"></a><span class="lineno">  102</span>            <span class="keywordflow">continue</span>;</div>
 <div class="line"><a id="l00103" name="l00103"></a><span class="lineno">  103</span>        }</div>
 <div class="line"><a id="l00104" name="l00104"></a><span class="lineno">  104</span> </div>
-<div class="line"><a id="l00105" name="l00105"></a><span class="lineno">  105</span>        <span class="keyword">auto</span> inner = raw_inner.cast&lt;pybind11::tuple&gt;();</div>
+<div class="line"><a id="l00105" name="l00105"></a><span class="lineno">  105</span>        <span class="keyword">auto</span> inner = raw_inner.template cast&lt;pybind11::tuple&gt;();</div>
 <div class="line"><a id="l00106" name="l00106"></a><span class="lineno">  106</span>        <span class="keywordflow">if</span> (inner.size() != 2) {</div>
 <div class="line"><a id="l00107" name="l00107"></a><span class="lineno">  107</span>            <span class="keyword">auto</span> ctype = get_class_name(matrix);</div>
 <div class="line"><a id="l00108" name="l00108"></a><span class="lineno">  108</span>            <span class="keywordflow">throw</span> std::runtime_error(<span class="stringliteral">&quot;each entry of &#39;&lt;&quot;</span> + ctype + <span class="stringliteral">&quot;&gt;.contents&#39; should be a tuple of length 2 or None&quot;</span>);</div>
 <div class="line"><a id="l00109" name="l00109"></a><span class="lineno">  109</span>        }</div>
 <div class="line"><a id="l00110" name="l00110"></a><span class="lineno">  110</span> </div>
-<div class="line"><a id="l00111" name="l00111"></a><span class="lineno">  111</span>        <span class="keyword">auto</span> iinput = inner[0].cast&lt;pybind11::array&gt;();</div>
+<div class="line"><a id="l00111" name="l00111"></a><span class="lineno">  111</span>        <span class="keyword">auto</span> iinput = inner[0].template cast&lt;pybind11::array&gt;();</div>
 <div class="line"><a id="l00112" name="l00112"></a><span class="lineno">  112</span>        <span class="keywordflow">if</span> (ibuffer != NULL) {</div>
 <div class="line"><a id="l00113" name="l00113"></a><span class="lineno">  113</span>            dump_to_buffer(iinput, ibuffer);</div>
 <div class="line"><a id="l00114" name="l00114"></a><span class="lineno">  114</span>        }</div>
 <div class="line"><a id="l00115" name="l00115"></a><span class="lineno">  115</span>        <span class="keywordflow">if</span> (vbuffer != NULL) {</div>
-<div class="line"><a id="l00116" name="l00116"></a><span class="lineno">  116</span>            <span class="keyword">auto</span> vinput = inner[1].cast&lt;pybind11::array&gt;();</div>
+<div class="line"><a id="l00116" name="l00116"></a><span class="lineno">  116</span>            <span class="keyword">auto</span> vinput = inner[1].template cast&lt;pybind11::array&gt;();</div>
 <div class="line"><a id="l00117" name="l00117"></a><span class="lineno">  117</span>            dump_to_buffer(vinput, vbuffer);</div>
 <div class="line"><a id="l00118" name="l00118"></a><span class="lineno">  118</span>        }</div>
 <div class="line"><a id="l00119" name="l00119"></a><span class="lineno">  119</span> </div>

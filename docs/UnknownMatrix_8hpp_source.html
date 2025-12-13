@@ -147,10 +147,10 @@ $(function(){ initResizable(false); });
 <div class="line"><a id="l00083" name="l00083"></a><span class="lineno">   83</span>        <a class="code hl_functionRef" href="https://tatami-inc.github.io/tatami/namespacetatami.html#a4d15fa0c5213ad27fc0c99c3dd5c02ad">tatami::can_cast_Index_to_container_size&lt;pybind11::array_t&lt;Index_&gt;</a> &gt;(std::max(my_nrow, my_ncol));</div>
 <div class="line"><a id="l00084" name="l00084"></a><span class="lineno">   84</span> </div>
 <div class="line"><a id="l00085" name="l00085"></a><span class="lineno">   85</span>        <span class="keyword">auto</span> sparse = my_module.attr(<span class="stringliteral">&quot;is_sparse&quot;</span>)(my_seed);</div>
-<div class="line"><a id="l00086" name="l00086"></a><span class="lineno">   86</span>        my_sparse = sparse.cast&lt;<span class="keywordtype">bool</span>&gt;();</div>
+<div class="line"><a id="l00086" name="l00086"></a><span class="lineno">   86</span>        my_sparse = sparse.template cast&lt;bool&gt;();</div>
 <div class="line"><a id="l00087" name="l00087"></a><span class="lineno">   87</span> </div>
 <div class="line"><a id="l00088" name="l00088"></a><span class="lineno">   88</span>        <span class="keyword">auto</span> grid = my_module.attr(<span class="stringliteral">&quot;chunk_grid&quot;</span>)(my_seed);</div>
-<div class="line"><a id="l00089" name="l00089"></a><span class="lineno">   89</span>        <span class="keyword">auto</span> bounds = grid.attr(<span class="stringliteral">&quot;boundaries&quot;</span>).cast&lt;pybind11::tuple&gt;();</div>
+<div class="line"><a id="l00089" name="l00089"></a><span class="lineno">   89</span>        <span class="keyword">auto</span> bounds = grid.attr(<span class="stringliteral">&quot;boundaries&quot;</span>).template cast&lt;pybind11::tuple&gt;();</div>
 <div class="line"><a id="l00090" name="l00090"></a><span class="lineno">   90</span>        <span class="keywordflow">if</span> (bounds.size() != 2) {</div>
 <div class="line"><a id="l00091" name="l00091"></a><span class="lineno">   91</span>            <span class="keyword">auto</span> ctype = get_class_name(seed);</div>
 <div class="line"><a id="l00092" name="l00092"></a><span class="lineno">   92</span>            <span class="keywordflow">throw</span> std::runtime_error(<span class="stringliteral">&quot;&#39;chunk_grid(&lt;&quot;</span> + ctype + <span class="stringliteral">&quot;&gt;).boundaries&#39; should be a tuple of length 2&quot;</span>);</div>
