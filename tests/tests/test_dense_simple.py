@@ -89,9 +89,9 @@ def test_numpy_empty(subtests):
     NR = 0 
     NC = 10
     mat = numpy.random.rand(NR, NC)
-    compare.quick_test_suite(subtests, mat)
+    compare.big_test_suite(subtests, mat)
 
     NR = 10
     NC = 0
     mat = numpy.random.rand(NR, NC)
-    compare.quick_test_suite(subtests, mat)
+    compare.big_test_suite(subtests, mat)

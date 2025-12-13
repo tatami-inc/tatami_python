@@ -77,10 +77,10 @@ def test_Sparse2darray_partial_empty(subtests):
 
 def test_Sparse2darray_empty(subtests):
     mat = delayedarray.SparseNdarray((10, 10), None, dtype=numpy.dtype("double"), index_dtype=numpy.dtype("int32"))
-    compare.quick_test_suite(subtests, mat)
+    compare.big_test_suite(subtests, mat)
 
     mat = delayedarray.SparseNdarray((10, 0), None, dtype=numpy.dtype("double"), index_dtype=numpy.dtype("int32"))
-    compare.quick_test_suite(subtests, mat)
+    compare.big_test_suite(subtests, mat)
 
     mat = delayedarray.SparseNdarray((0, 10), None, dtype=numpy.dtype("double"), index_dtype=numpy.dtype("int32"))
-    compare.quick_test_suite(subtests, mat)
+    compare.big_test_suite(subtests, mat)
