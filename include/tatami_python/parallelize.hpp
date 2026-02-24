@@ -30,29 +30,36 @@ namespace tatami_python {
 
 /**
  * Replacement for `tatami::parallelize()` that applies a function to a set of tasks in parallel, usually for iterating over a dimension of a `Matrix`.
- * This releases the Python GIL so that it can be re-acquired by `UnknownMatrix` extractors in each individual thread.
+ * This releases the Python GIL so that it can be re-acquired by `UnknownMatrix` extractors in each individual worker.
  *
  * @tparam Function_ Function to be applied to a contiguous range of tasks.
  * This should accept three arguments:
- * - `thread`, the thread number executing this task range.
- *   This will be passed as an `int`.
+ * - `worker`, the worker ID executing this task range.
+ *   This will be passed as an `int` in `[0, workers)`.
  * - `task_start`, the start index of the task range.
- *   This will be passed as an `Index_`.
+ *   This will be passed as an `Index_` in `[0, tasks)`.
  * - `task_length`, the number of tasks in the task range.
- *   This will be passed as an `Index_`.
+ *   This will be passed as an `Index_` in `(0, tasks)`, i.e., it is always positive.
  * @tparam Index_ Integer type for the number of tasks.
  *
  * @param fun Function that executes a contiguous range of tasks.
+ * This will be called no more than once in each worker with a different non-overlapping range, where the union of all ranges will cover `[0, tasks)`. 
  * @param tasks Number of tasks.
- * @param threads Number of threads.
+ * This should be non-negative.
+ * @param workers Number of workers.
+ * This should be positive.
+ *
+ * @return The number of workers (`K`) that were actually used.
+ * `K` is guaranteed to be no greater than `workers` (or 1, if `workers` is not positive).
+ * `fun()` will have been called once for each of the worker IDs `[0, ..., K - 1]`.
  */
 template<class Function_, class Index_>
-void parallelize(const Function_ fun, const Index_ tasks, int threads) {
+int parallelize(const Function_ fun, const Index_ tasks, int workers) {
     std::optional<pybind11::gil_scoped_release> ungil;
     if (PyGILState_Check()) {
         ungil.emplace();
     }
-    subpar::parallelize_range(threads, tasks, std::move(fun));
+    return subpar::parallelize_range(workers, tasks, std::move(fun));
 }
 
 /**

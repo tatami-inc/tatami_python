@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.24)
 
 project(tatami_python
-    VERSION 0.1.2
+    VERSION 0.1.3
     DESCRIPTION "tatami bindings for abstract Python matrices"
     LANGUAGES CXX)
 
@@ -14,9 +14,9 @@ option(TATAMI_PYTHON_FETCH_EXTERN "Automatically fetch tatami_python's external 
 if(TATAMI_PYTHON_FETCH_EXTERN)
     add_subdirectory(extern)
 else()
-    find_package(tatami_tatami 4.0.0 CONFIG REQUIRED)
-    find_package(tatami_tatami_chunked 2.0.0 CONFIG REQUIRED)
-    find_package(ltla_sanisizer 0.1.0 CONFIG REQUIRED)
+    find_package(tatami_tatami 4.1.0 CONFIG REQUIRED)
+    find_package(tatami_tatami_chunked 2.1.0 CONFIG REQUIRED)
+    find_package(ltla_sanisizer 0.2.0 CONFIG REQUIRED)
 endif()
 
 target_link_libraries(tatami_python INTERFACE tatami::tatami tatami::tatami_chunked ltla::sanisizer)
