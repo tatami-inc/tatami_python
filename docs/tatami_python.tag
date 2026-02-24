@@ -76,11 +76,11 @@
     <class kind="class">tatami_python::UnknownMatrix</class>
     <class kind="struct">tatami_python::UnknownMatrixOptions</class>
     <member kind="function">
-      <type>void</type>
+      <type>int</type>
       <name>parallelize</name>
       <anchorfile>namespacetatami__python.html</anchorfile>
-      <anchor>a125b258daa1b77c9e7900018898ae2eb</anchor>
-      <arglist>(const Function_ fun, const Index_ tasks, int threads)</arglist>
+      <anchor>a479c07366c18ac4c5fbef5b1726aa9ff</anchor>
+      <arglist>(const Function_ fun, const Index_ tasks, int workers)</arglist>
     </member>
     <member kind="function">
       <type>void</type>

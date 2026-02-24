@@ -107,9 +107,9 @@ Classes</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="func-members" name="func-members"></a>
 Functions</h2></td></tr>
-<tr class="memitem:a125b258daa1b77c9e7900018898ae2eb" id="r_a125b258daa1b77c9e7900018898ae2eb"><td class="memTemplParams" colspan="2">template&lt;class Function_ , class Index_ &gt; </td></tr>
-<tr class="memitem:a125b258daa1b77c9e7900018898ae2eb"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="#a125b258daa1b77c9e7900018898ae2eb">parallelize</a> (const Function_ fun, const Index_ tasks, int threads)</td></tr>
-<tr class="separator:a125b258daa1b77c9e7900018898ae2eb"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a479c07366c18ac4c5fbef5b1726aa9ff" id="r_a479c07366c18ac4c5fbef5b1726aa9ff"><td class="memTemplParams" colspan="2">template&lt;class Function_ , class Index_ &gt; </td></tr>
+<tr class="memitem:a479c07366c18ac4c5fbef5b1726aa9ff"><td class="memTemplItemLeft" align="right" valign="top">int&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="#a479c07366c18ac4c5fbef5b1726aa9ff">parallelize</a> (const Function_ fun, const Index_ tasks, int workers)</td></tr>
+<tr class="separator:a479c07366c18ac4c5fbef5b1726aa9ff"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ac71a285d19f6a5982ff0beabc2195c8e" id="r_ac71a285d19f6a5982ff0beabc2195c8e"><td class="memTemplParams" colspan="2">template&lt;typename Function_ &gt; </td></tr>
 <tr class="memitem:ac71a285d19f6a5982ff0beabc2195c8e"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="#ac71a285d19f6a5982ff0beabc2195c8e">lock</a> (Function_ fun)</td></tr>
 <tr class="separator:ac71a285d19f6a5982ff0beabc2195c8e"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -152,8 +152,8 @@ template&lt;typename Function_ &gt; </div>
 
 </div>
 </div>
-<a id="a125b258daa1b77c9e7900018898ae2eb" name="a125b258daa1b77c9e7900018898ae2eb"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a125b258daa1b77c9e7900018898ae2eb">&#9670;&#160;</a></span>parallelize()</h2>
+<a id="a479c07366c18ac4c5fbef5b1726aa9ff" name="a479c07366c18ac4c5fbef5b1726aa9ff"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a479c07366c18ac4c5fbef5b1726aa9ff">&#9670;&#160;</a></span>parallelize()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -161,7 +161,7 @@ template&lt;typename Function_ &gt; </div>
 template&lt;class Function_ , class Index_ &gt; </div>
       <table class="memname">
         <tr>
-          <td class="memname">void tatami_python::parallelize </td>
+          <td class="memname">int tatami_python::parallelize </td>
           <td>(</td>
           <td class="paramtype">const Function_</td>          <td class="paramname"><span class="paramname"><em>fun</em></span>, </td>
         </tr>
@@ -173,17 +173,17 @@ template&lt;class Function_ , class Index_ &gt; </div>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">int</td>          <td class="paramname"><span class="paramname"><em>threads</em></span>&#160;)</td>
+          <td class="paramtype">int</td>          <td class="paramname"><span class="paramname"><em>workers</em></span>&#160;)</td>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Replacement for <code><a class="elRef" href="https://tatami-inc.github.io/tatami/namespacetatami.html#a3ea65e5b93eb55c03b00aca301e0396f">tatami::parallelize()</a></code> that applies a function to a set of tasks in parallel, usually for iterating over a dimension of a <code>Matrix</code>. This releases the Python GIL so that it can be re-acquired by <code><a class="el" href="classtatami__python_1_1UnknownMatrix.html" title="Unknown matrix-like object in Python.">UnknownMatrix</a></code> extractors in each individual thread.</p>
+<p>Replacement for <code><a class="elRef" href="https://tatami-inc.github.io/tatami/namespacetatami.html#a9c3979c60e3d7e066be533f7ee3a2f97">tatami::parallelize()</a></code> that applies a function to a set of tasks in parallel, usually for iterating over a dimension of a <code>Matrix</code>. This releases the Python GIL so that it can be re-acquired by <code><a class="el" href="classtatami__python_1_1UnknownMatrix.html" title="Unknown matrix-like object in Python.">UnknownMatrix</a></code> extractors in each individual worker.</p>
 <dl class="tparams"><dt>Template Parameters</dt><dd>
   <table class="tparams">
     <tr><td class="paramname">Function_</td><td>Function to be applied to a contiguous range of tasks. This should accept three arguments:<ul>
-<li><code>thread</code>, the thread number executing this task range. This will be passed as an <code>int</code>.</li>
-<li><code>task_start</code>, the start index of the task range. This will be passed as an <code>Index_</code>.</li>
-<li><code>task_length</code>, the number of tasks in the task range. This will be passed as an <code>Index_</code>. </li>
+<li><code>worker</code>, the worker ID executing this task range. This will be passed as an <code>int</code> in <code>[0, workers)</code>.</li>
+<li><code>task_start</code>, the start index of the task range. This will be passed as an <code>Index_</code> in <code>[0, tasks)</code>.</li>
+<li><code>task_length</code>, the number of tasks in the task range. This will be passed as an <code>Index_</code> in <code>(0, tasks)</code>, i.e., it is always positive. </li>
 </ul>
 </td></tr>
     <tr><td class="paramname">Index_</td><td>Integer type for the number of tasks.</td></tr>
@@ -192,12 +192,13 @@ template&lt;class Function_ , class Index_ &gt; </div>
 </dl>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
-    <tr><td class="paramname">fun</td><td>Function that executes a contiguous range of tasks. </td></tr>
-    <tr><td class="paramname">tasks</td><td>Number of tasks. </td></tr>
-    <tr><td class="paramname">threads</td><td>Number of threads. </td></tr>
+    <tr><td class="paramname">fun</td><td>Function that executes a contiguous range of tasks. This will be called no more than once in each worker with a different non-overlapping range, where the union of all ranges will cover <code>[0, tasks)</code>. </td></tr>
+    <tr><td class="paramname">tasks</td><td>Number of tasks. This should be non-negative. </td></tr>
+    <tr><td class="paramname">workers</td><td>Number of workers. This should be positive.</td></tr>
   </table>
   </dd>
 </dl>
+<dl class="section return"><dt>Returns</dt><dd>The number of workers (<code>K</code>) that were actually used. <code>K</code> is guaranteed to be no greater than <code>workers</code> (or 1, if <code>workers</code> is not positive). <code>fun()</code> will have been called once for each of the worker IDs <code>[0, ..., K - 1]</code>. </dd></dl>
 
 </div>
 </div>
